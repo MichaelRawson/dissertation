@@ -1,0 +1,175 @@
+\documentclass[12pt]{article}
+\title{Part II Project Proposal: Formalising Simply-Typed \(\lambda\)-Calculus}
+\author{Michael Rawson}
+
+\usepackage[backend=bibtex]{biblatex}
+\bibliography{proposal}
+\begin{document}
+\input{title}
+
+\section*{Introduction}
+\(\lambda\)-calculus (see \parencite{lambda-overview} for an overview) is a formal system of terms, often used in computability theory, but also more recently as a base system for various \emph{type theories}.
+
+The calculus expresses computation as a series of \emph{abstractions} (anonymous first-class functions) and \emph{applications} (function application), with reduction relations between them.
+For example, the identity function
+\[
+\lambda x.x
+\]
+applied to some term, say \(T\), is clearly \(T\): thus, the term
+\[
+(\lambda x.x)\ T
+\]
+reduces to \(T\).
+
+This calculus, the ``untyped'' \(\lambda\)-calculus, clearly lacks any sort of type system.
+Adding types to the calculus allows for various \emph{typed} \(\lambda\)-calculi: these add many useful properties, including strong normalisation for some calculi\parencite{strong-normalisation}, even allowing for mathematical theorems to be expressed under the ``propositions-as-types'' slogan\parencite{curry-howard}.
+The simplest of these is the \emph{simply-typed} calculus \(\lambda_\to\), consisting only of type names \(A, B, \ldots\) and a function-arrow type constructor, e.g. \(A \to B\).
+
+In in the simply-typed calculus, type inference, the process of obtaining a type of an arbitrary term, is decidable.
+However, any implementation of type inference (for, say, a programming language, or a theorem prover) must be correct to be useful.
+Verification of an algorithm by hand is error-prone and tedious, but generating verified code from a formal model of the code is both error-free and can sometimes be automated.
+
+Therefore, I propose that I use Isabelle, a mature and versatile proof assistant \parencite{isabelle-overview} to generate a formally-verified type inference implementation in Standard ML for \(\lambda_\to\).
+
+\section*{Required Resources}
+No extra resources other than the Isabelle software package is required for this project.
+Isabelle's 2016 release is freely available online\parencite{isabelle-installation}, so this should not present a problem.
+
+\section*{Starting Point}
+I'm familiar with types and the \(\lambda\)-calculus, both together and separately, through extra-curricular study and through the various theory courses present in part I of the tripos.
+
+However, I'm not familiar with the Isabelle proof assistant, or with any similar proof assistants with a structured proof language, or with the underlying logical system (in Isabelle's case, this is in fact interchangeable, but I'll be using the default option, \emph{Isabelle/HOL}).
+I have been given a crash course in the assistant by my supervisor over the course of the summer break in the form of exercises, reading, and advice, but my Isabelle could still use some improvement.
+
+\section*{Structure of the Project}
+The aim of this project is to produce verified Standard ML code from Isabelle to implement type inference for \(\lambda_\to\).
+A number of design choices have already been made in order to make a concrete plan.
+\begin{enumerate}
+\item
+The \(\lambda\)-calculus contains \emph{binding} terms, the abstractions, which it uses to bind variables ``under'' the term.
+The subject of binders is surprisingly complex, with many possible representations, including:
+\begin{itemize}
+\item
+a concrete representation involving explicitly-bound variables
+\item
+de Bruijn indices, in which variables are referred to by the number of binders from the point of reference
+\item
+higher-order abstract syntax, which embeds the binding in the implementation language's binders
+\item
+more complex approaches involving \emph{permutations} of variables, such as in Nominal Logic\parencite{binding}
+\end{itemize}
+I have chosen the permutation approach, as it is the most mathematically interesting and offers some advantages over other approaches (as argued in \parencite{binding}).
+\item
+In a similar vein, the notion of \(\alpha\)-equivalence --- that is, two terms are equivalent if they are the same except for their use of different bound variable names: \(f(x) = x^2\) and \(f(y) = y^2\) would be said to be \(\alpha\)-equivalent --- needs to be expressed in the statement of lemmas in order to be fully general.
+This can either be interjected wherever necessary, or equality of terms can be redefined using Isabelle's \emph{quotient type} implementation.
+The latter simplifies later lemma definitions in exchange for implementation difficulty, so I have chosen the quotient-type option for greater elegance.
+\item
+The simply-typed calculus is often extended to allow general recursion by means of a fixpoint operator.
+I've chosen not to implement this, as it significantly complicates the theory by allowing \(\lambda_\to\) to become Turing-powerful.
+\item
+Several properties of the implementation can be used to check its correctness.
+Specifically, I will prove the progress, type-preservation, and safety properties (as seen in the part IB semantics course) for my implementation.
+Additionally, I will show that the type-checking procedure always produces the same results as the type inference rules expressed inductively.
+This should suffice to ``verify'' the implementation has been formalised as expected.
+\end{enumerate}
+
+The structure of the project is as follows, with several main sections:
+\begin{enumerate}
+\item
+An in-depth study of the simply-typed calculus and varieties (see above), to ensure I have details correct before starting work.
+\item
+Any necessary research in order to operate the Isabelle package effectively for this task.
+\item
+Development of the representation and operations of the calculus in Isabelle, allowing expression of more complex theorems.
+\item
+Proof of the progress, preservation, and safety properties of the calculus, following on from the representational work.
+\item
+Implementing and verifying the type inference algorithm.
+\item
+Extracting Standard ML code for the algorithm.
+\item
+Producing the dissertation.
+\end{enumerate}
+
+\section*{Success Criteria}
+Each section from the project has its own success criterion:
+\begin{enumerate}
+\item
+Do I have sufficient \emph{theoretical} knowledge to implement the project confidently?
+\item
+Do I have sufficient \emph{practical} knowledge to implement the project confidently?
+\item
+Can I verify the representation is correct with later proofs?
+\item
+Have I proven the aforementioned properties for the encoded calculus?
+\item
+Is the type inference algorithm verifiable?
+\item
+Does the Standard ML code compile/work as expected?
+\item
+Is the dissertation complete?
+\end{enumerate}
+Since the project is formally-verified, the final success criterion is remarkably simple: does the proof assistant tell me that I have proved my theorems?
+
+In order to properly evaluate the project, some other metrics of success might be employed:
+\begin{itemize}
+\item
+speed of generated code
+\item
+fuzz-testing generated code, as a sanity check
+\item
+quality/complexity of the formalisation: compare my implementation to prior art for code quality or complexity
+\end{itemize}
+
+In case of finishing early, I have also planned some extensions:
+\begin{itemize}
+\item
+extend the implementation to more advanced calculi, like System F or \(\lambda\Pi\)
+\item
+prove more properties about the calculus, like the congruence property
+\item
+experiment with different formulations of the type inference algorithm and observe the effects on generated code and its performance
+\end{itemize}
+\section*{Timetable and Milestones}
+\subsection*{Weeks 1--5}
+Study relevant theory and Isabelle, practising with small example formalisations.
+
+Milestone: working permutation theory encoded in Isabelle.
+
+\subsection*{Weeks 6--7}
+Encode the calculus as a datatype in Isabelle, getting to grips with the required lemmas to use the quotient type machinery and so on.
+
+Milestone: working quotient type for the calculus expressing \(\alpha\)-equivalence.
+
+\subsection*{Weeks 8--12}
+Prove properties about the calculus, begin to plan dissertation, write progress report and review work so far.
+
+Milestone: properties of the calculus proven.
+
+\subsection*{Weeks 13--19}
+Implement the type inference algorithm and verify it.
+Write the initial chapters of the dissertation.
+
+Milestones: complete type inference algorithm, starting chapters of dissertation complete, implementation chapter started.
+
+\subsection*{Weeks 20--26}
+Tick over during exams, returning to code often. Learn how to use Isabelle's code extraction feature and play with the generated code.
+
+Milestones: code extraction working.
+
+\subsection*{Weeks 27--31}
+Evaluate and test the generated code, finishing off the implementation chapter and moving onto the evaluation and final chapters later.
+
+Milestones: generated code evaluated with sanity checks and performance measures, implementation chapter complete.
+
+\subsection*{Weeks 32--33}
+Finish dissertation and review before submission.
+
+Milestones: dissertation complete.
+
+\subsection*{Week 34}
+Submit dissertation.
+
+Milestones: dissertation complete.
+\printbibliography
+\end{document}

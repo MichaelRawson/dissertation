@@ -1,0 +1,3 @@
+I will produce a formally-verified implementation of a type inference algorithm for the simply-typed λ-calculus.
+To achieve this, I will formalise the calculus in the proof assistant Isabelle, encode operations over the calculus and their semantics in this formalisation, then prove the progress, type-preservation, and safety properties hold in this context.
+Finally, I will write and formally verify a type inference algorithm in Isabelle, then use Isabelle's code-extraction tools to produce Standard ML code for this algorithm, thus creating verified Standard ML code for type inference in the simply-typed calculus.
