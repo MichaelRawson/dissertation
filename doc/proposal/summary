@@ -1,3 +1,5 @@
-I will produce a formally-verified implementation of a type inference algorithm for the simply-typed λ-calculus.
-To achieve this, I will formalise the calculus in the proof assistant Isabelle, encode operations over the calculus and their semantics in this formalisation, then prove the progress, type-preservation, and safety properties hold in this context.
-Finally, I will write and formally verify a type inference algorithm in Isabelle, then use Isabelle's code-extraction tools to produce Standard ML code for this algorithm, thus creating verified Standard ML code for type inference in the simply-typed calculus.
+The aim of this project is to verify some metatheoretical results of a name carrying simply typed lambda calculus in the Isabelle proof assistant, constructed using Isabelle's quotient datatype mechanism.
+This naive explicit quotient will be an approach to handling the name binding problem that has, to my knowledge, never been attempted before.
+To focus the project and provide a means of evaluating my work, I concretely aim to prove results sufficient to establish the correctness of an executable type inference algorithm for the calculus, though any metatheoretical or algorithmic property of the calculus can be formalised as extended work.
+Further, one advantage of the explicit quotient that I will be using, over alternative approaches to handling name carrying syntax (e.g. Nominal Isabelle), is the ability to extract executable code from my work.
+I will use this executable code to evaluate my work, and also compare and contrast the naive quotient approach to other approaches to handling name binding as part of my evaluation
