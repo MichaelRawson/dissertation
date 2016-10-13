@@ -8,7 +8,7 @@
 \input{title}
 
 \section*{Introduction}
-\(\lambda\)-calculus (see \parencite{lambda-overview} for an overview) is a formal system of terms, often used in computability theory, but also more recently as a base system for various \emph{type theories}.
+\(\lambda\)-calculus (see~\parencite{lambda-overview} for an overview) is a formal system of terms, often used in computability theory, but also more recently as a base system for various \emph{type theories}.
 
 The calculus expresses computation as a series of \emph{abstractions} (anonymous first-class functions) and \emph{applications} (function application), with reduction relations between them.
 For example, the identity function
@@ -22,29 +22,29 @@ applied to some term, say \(T\), is clearly \(T\): thus, the term
 reduces to \(T\).
 
 This calculus, the ``untyped'' \(\lambda\)-calculus, clearly lacks any sort of type system.
-Adding types to the calculus allows for various \emph{typed} \(\lambda\)-calculi: these add many useful properties, including strong normalisation for some calculi\parencite{strong-normalisation}, even allowing for mathematical theorems to be expressed under the ``propositions-as-types'' slogan\parencite{curry-howard}.
-The simplest of these is the \emph{simply-typed} calculus \(\lambda_\to\), consisting only of type names \(A, B, \ldots\) and a function-arrow type constructor, e.g. \(A \to B\).
+Adding types to the calculus allows for various \emph{typed} \(\lambda\)-calculi: these add many useful properties, including strong normalisation for some calculi~\parencite{strong-normalisation}, even allowing for mathematical theorems to be expressed under the ``propositions-as-types'' slogan~\parencite{curry-howard}.
+The simplest of these is the \emph{simply-typed} calculus \(\lambda_\to\), consisting only of base names \(A, B, \ldots\) and a function-arrow type constructor, e.g. \(A \to B\).
 
-\emph{Formalising} such a calculus in a computerised proof assistant has several advantages: for one thing, theorems and proofs about the calculus can be expressed, and therefore automated, in the assistant.
-For another, it allows the generation of formally-verified code from the assistant to a target language more suited for execution, thus achieving the holy grail of bug-free software development.
+Advantages of \emph{formalising} such a calculus in a computerised proof assistant are twofold: first, theorems and proofs about the calculus can be expressed, and therefore automated, in the assistant.
+Secondly, it allows the generation of formally-verified code from the assistant to a target language more suited for execution, thus achieving the holy grail of bug-free software development.
 
-Therefore, I propose that I use Isabelle, a mature and versatile proof assistant \parencite{isabelle-overview} to formalise \(\lambda_\to\) and prove some metatheory about the encoded calculus.
+Therefore, I propose that I use Isabelle, a mature and versatile proof assistant~\parencite{isabelle-overview} to formalise \(\lambda_\to\) and prove some metatheory about the encoded calculus.
 In order to achieve this, and by means of innovation, I will also attempt to use an unusual method for encoding the calculus' bound variables.
-Finally, to better evaluate my work, I will implement a type inference algorithm for \(\lambda_\to\), prove it correct, then extract executable code for it.
+I hypothesise that Isabelle's quotient datatype implementation is sufficiently mature to work with an explicit quotient over \(\alpha\)-equivalence without any external tooling support, such as Nominal Isabelle.
+Testing this hypothesis will provide opportunity for evaluation, but to better judge my work, I will use my formalisation to implement a type inference algorithm for \(\lambda_\to\), prove it correct, then extract executable code for it.
 
 \section*{Required Resources}
 No extra resources other than the Isabelle software package is required for this project.
-Isabelle's 2016 release is freely available online\parencite{isabelle-installation}, so this should not present a problem.
+Isabelle's 2016 release is freely available online~\parencite{isabelle-installation}, so this should not present a problem.
 
 \section*{Starting Point}
-I'm familiar with types and the \(\lambda\)-calculus, both together and separately, through extra-curricular study and through the various theory courses present in part I of the tripos.
+I'm familiar with types and the \(\lambda\)-calculus, both together and separately, through extra-curricular study and through the various theory courses present in Part I of the tripos.
 
-However, I'm not familiar with the Isabelle proof assistant, or with any similar proof assistants with a structured proof language, or with the underlying logical system (in Isabelle's case, this is in fact interchangeable, but I'll be using the default option, \emph{Isabelle/HOL}).
-I have been given a crash course in the assistant by my supervisor over the course of the summer break in the form of exercises, reading, and advice, but my Isabelle could still use some improvement.
+However, I'm a novice user of the Isabelle proof assistant: I have been given a crash course in the assistant by my supervisor over the course of the summer break in the form of exercises, reading, and advice, but my Isabelle could still use some improvement.
 
 \section*{Structure of the Project}
-The aim of this project is to verify some metatheory about the calculus, but I will use the goal of producing a verified type inference implementation to drive this process.
-Additionally, this type inference goal allows me to evaluate the project more intelligently than as a collection of theorems.
+The aim of this project is to verify some metatheory about the calculus, but I will use the goal of producing a verified type inference implementation to focus this process.
+Additionally, this type inference goal allows me to evaluate the project more readily than as a collection of theorems.
 A number of design choices have already been made in order to make a concrete plan.
 \begin{enumerate}
 \item
@@ -58,9 +58,9 @@ de Bruijn indices, in which variables are referred to by the number of binders f
 \item
 higher-order abstract syntax, which embeds the binding in the implementation language's binders
 \item
-more complex approaches involving \emph{permutations} of variables, such as in Nominal Logic\parencite{binding}
+more complex approaches involving \emph{permutations} of variables, such as in Nominal Logic~\parencite{binding}
 \end{itemize}
-I have chosen the permutation approach, as it is the most mathematically interesting and offers some advantages over other approaches (as argued in \parencite{binding}).
+I have chosen the permutation approach, as it is the most mathematically interesting and offers some advantages over other approaches (as argued in~\parencite{binding}).
 A further advantage of this explicit approach to name-carrying over existing implementations, such as Nominal Isabelle, is the ability to extract executable code from the verification.
 
 \item
@@ -68,11 +68,8 @@ In a similar vein, the notion of \(\alpha\)-equivalence --- that is, two terms a
 This can either be interjected wherever necessary, or equality of terms can be redefined using Isabelle's \emph{quotient type} implementation.
 The latter simplifies later lemma definitions in exchange for implementation difficulty, so I have chosen the quotient-type option for greater elegance.
 \item
-The simply-typed calculus is often extended to allow general recursion by means of a fixpoint operator.
-I've chosen not to implement this, as it significantly complicates the theory by allowing \(\lambda_\to\) to become Turing-powerful.
-\item
 Several properties of the implementation can be used to check its correctness.
-Specifically, I will prove the progress, type-preservation, and safety properties (as seen in the part IB semantics course) for my implementation.
+Specifically, I will prove the progress, type-preservation, and safety properties (as seen in the Part IB semantics course) for my implementation.
 Additionally, I will show that the type-checking procedure always produces the same results as the type inference rules expressed inductively.
 This should suffice to ``verify'' the implementation has been formalised as expected.
 \end{enumerate}
@@ -113,7 +110,7 @@ Does the Standard ML code compile/work as expected?
 \item
 Is the dissertation complete?
 \end{enumerate}
-Since the project is formally-verified, the final success criterion is remarkably simple: does the proof assistant tell me that I have proved my theorems?
+Since the project is formally-verified, there is an overall success criterion: will Isabelle's proof checker pass all my proofs as valid?
 
 In order to properly evaluate the project, some other metrics of success might be employed:
 \begin{itemize}
@@ -127,7 +124,8 @@ quality/complexity of the formalisation: compare my implementation to prior art 
 compare and contrast my unusual approach of using Isabelle's quotient types directly for name binding with other approaches
 \end{itemize}
 
-In case of finishing early, I have also planned some extensions:
+In case of finishing early, I have also planned some extensions.
+\subsection*{Extensions}
 \begin{itemize}
 \item
 extend the implementation to more advanced calculi, like System F or \(\lambda\Pi\)
@@ -140,33 +138,46 @@ experiment with different formulations of the type inference algorithm and obser
 In 10 fortnightly steps, the proposed timetable for this project is as follows:
 \begin{enumerate}
 \item
+Michaelmas, weeks 2--4.
 Prepatory academic work: survey the current state of the art, particularly in the areas of name-binding and typed calculi.
 I should be able to implement and explain ideas from relevant papers in order to complete my project.
 \item
+Michaelmas, weeks 4--6.
 Prepatory practical work: experiment and practise with the Isabelle proof assistant.
 I should be able to express relevant ideas and theorems more easily in the software.
 \item
+Michaelmas, weeks 6--8.
 Encode the calculus in Isabelle and start work on the permutation approach to \(\alpha\)-equivalence.
 \item
+Lent, weeks 0--2.
 Finish work on the permutation theory and encode equivalence with a quotient type.
 I will already have proven some vital properties of the calculus at this point to show that equivalence of terms is an equivalence relation.
 \item
+Lent, weeks 2--4.
 Start proving properties about the calculus.
 I will aim to finish at least a few to show for the progress report and presentation.
 \item
+Lent, weeks 4--6.
 Complete as many properties as possible before moving on to the type inference.
 Implement the type inference algorithm and extract executable code for it.
 \item
+Lent, weeks 6--8.
 Verify the type inference algorithm behaves correctly and finish any remaining tasks for the practical work.
 \item
+Easter, weeks 0--2.
 Start writing the dissertation.
 The Introduction and Preparation chapters should be complete, with the Implementation chapter started.
 \item
+Easter, weeks 2--4.
 Finish writing the dissertation.
 All chapters should be complete as far as possible at this point.
 \item
+Easter, weeks 4--6.
 Review, proof-read and make any required changes to the dissertation.
 Reserve space for submission and emergencies.
 \end{enumerate}
+
+This timetable assumes I complete no work at all outside of term-time. 
+Obviously, I plan to work outside of term additionally, but this buffer allows me a safety margin to ensure I complete the project.
 \printbibliography
 \end{document}
