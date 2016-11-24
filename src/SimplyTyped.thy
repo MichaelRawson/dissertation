@@ -29,6 +29,11 @@ inductive pretrm_alpha_equiv :: "'a pretrm \<Rightarrow> 'a pretrm \<Rightarrow>
 | fn1:        "A =a B \<Longrightarrow> (Fn x T A) =a (Fn x T B)"
 | fn2:        "\<lbrakk>a \<noteq> b; A =a [a \<leftrightarrow> b] \<cdot> B; a \<notin> FV B\<rbrakk> \<Longrightarrow> (Fn a T A) =a (Fn b T B)"
 
+fun pretrm_size :: "'a pretrm \<Rightarrow> nat" where
+  "pretrm_size (Var _) = 1"
+| "pretrm_size (App A B) = size A + size B"
+| "pretrm_size (Fn x T A) = size A + 1"
+
 inductive_cases varE: "Var x =a Y"
 inductive_cases appE: "App A B =a Y"
 inductive_cases fnE:  "Fn x T A =a Y"
@@ -41,61 +46,18 @@ lemma pretrm_prm_apply_compose:
   shows "\<pi> \<cdot> \<sigma> \<cdot> X = (\<pi> \<circ> \<sigma>) \<cdot> X"
 by(induction X, simp_all add: prm_apply_composition)
 
+lemma pretrm_prm_fvs:
+  shows "FV (\<pi> \<cdot> X) = \<pi> {$} FV X"
+unfolding prm_apply_set_def proof(induction X)
+  case (Var x)
+    thus ?case by auto
+  next
+oops
+
 lemma pretrm_alpha_equiv_fvs:
   assumes "X =a Y"
   shows "FV X = FV Y"
 sorry
-
-lemma pretrm_prm_transfer:
-  assumes "\<pi> \<cdot> X =a Y"
-  shows "X =a \<pi> \<cdot> Y"
-sorry
-
-lemma pretrm_apply_prm_fvs_left:
-  assumes "a \<notin> FV X" and "b \<notin> FV X"
-  shows "a \<notin> FV ([a \<leftrightarrow> b] \<cdot> X)"
-using assms proof(induction X)
-  case (Var x)
-    hence "x \<noteq> a" and "x \<noteq> b" by auto
-    have "[a \<leftrightarrow> b] \<cdot> (Var x) = Var ([a \<leftrightarrow> b] $ x)" by simp
-    moreover have "... = Var x" using `x \<noteq> a` `x \<noteq> b` prm_unit_inaction by metis
-    ultimately have "[a \<leftrightarrow> b] \<cdot> (Var x) = Var x" by metis
-
-    thus ?case using `x \<noteq> a` by auto
-  next
-  case (App A B)
-    thus ?case by auto
-  next
-  case (Fn x T A)
-    consider "x = a \<and> x = b" | "x = a \<and> x \<noteq> b" | "x \<noteq> a \<and> x = b" | "x \<noteq> a \<and> x \<noteq> b" by auto
-    thus ?case proof(cases)
-      case 1 
-        hence "[a \<leftrightarrow> b] = \<epsilon>" using prm_unit_equal_id by metis
-        hence "[a \<leftrightarrow> b] \<cdot> (Fn x T A) = Fn x T A" using pretrm_prm_apply_id by metis
-        thus ?thesis using Fn.prems by metis
-      next
-      case 2
-        hence "[a \<leftrightarrow> b] \<cdot> Fn x T A = Fn b T ([a \<leftrightarrow> b] \<cdot> A)" sorry
-        show ?thesis sorry
-      next
-      case 3
-        show ?thesis sorry
-      next
-      case 4
-        show ?thesis sorry
-      next
-   qed
- next
-qed
-
-lemma pretrm_apply_prm_fvs_right:
-  assumes "a \<notin> FV X" and "b \<notin> FV X"
-  shows "b \<notin> FV ([a \<leftrightarrow> b] \<cdot> X)"
-proof -
-  have "[a \<leftrightarrow> b] = [b \<leftrightarrow> a]" using prm_unit_commutes.
-  moreover have "b \<notin> FV ([b \<leftrightarrow> a] \<cdot> X)" using assms pretrm_apply_prm_fvs_left by metis
-  ultimately show ?thesis by simp
-qed
 
 lemma pretrm_alpha_equiv_prm:
   assumes "X =a Y"
@@ -122,6 +84,18 @@ using assms proof(induction)
   next
 qed
 
+lemma pretrm_swp_transfer:
+  assumes "[a \<leftrightarrow> b] \<cdot> X =a Y"
+  shows "X =a [a \<leftrightarrow> b] \<cdot> Y"
+proof -
+  have "[a \<leftrightarrow> b] \<cdot> [a \<leftrightarrow> b] \<cdot> X =a [a \<leftrightarrow> b] \<cdot> Y"
+    using assms pretrm_alpha_equiv_prm by metis
+  hence "([a \<leftrightarrow> b] \<circ> [a \<leftrightarrow> b]) \<cdot> X =a [a \<leftrightarrow> b] \<cdot> Y" using pretrm_prm_apply_compose
+    by metis
+  hence "\<epsilon> \<cdot> X =a [a \<leftrightarrow> b] \<cdot> Y" using prm_unit_involution by metis
+  thus ?thesis using pretrm_prm_apply_id by metis
+qed
+
 lemma pretrm_alpha_equiv_fvs_transfer:
   assumes "A =a [a \<leftrightarrow> b] \<cdot> B" and "a \<notin> FV B"
   shows "b \<notin> FV A"
@@ -142,7 +116,7 @@ using assms proof(induction rule: pretrm_alpha_equiv.induct, (metis pretrm_alpha
   case (fn2 a b A B T)
     have "b \<noteq> a" using `a \<noteq> b` by auto
     have "B =a [b \<leftrightarrow> a] \<cdot> A" using `[a \<leftrightarrow> b] \<cdot> B =a A`
-      using pretrm_prm_transfer prm_unit_commutes by metis
+      using pretrm_swp_transfer prm_unit_commutes by metis
 
     have "b \<notin> FV A" using `a \<notin> FV B` `A =a [a \<leftrightarrow> b] \<cdot> B`
       using pretrm_alpha_equiv_fvs_transfer  by metis
@@ -234,7 +208,7 @@ using assms proof(induction X arbitrary: Y Z)
             have "A =a [x \<leftrightarrow> y] \<cdot> [y \<leftrightarrow> z] \<cdot> C"
               using `A =a [x \<leftrightarrow> y] \<cdot> B` `B =a [y \<leftrightarrow> z] \<cdot> C` pretrm_alpha_equiv_prm Fn.IH by metis
             hence "A =a ([x \<leftrightarrow> y] \<circ> [y \<leftrightarrow> z]) \<cdot> C" using pretrm_prm_apply_compose by metis
-            hence "A =a [x \<leftrightarrow> z] \<cdot> C" using prm_unit_transitive by metis
+            hence "A =a [x \<leftrightarrow> z] \<cdot> C" sorry
 
             have "x \<notin> FV C" sorry
             show ?thesis using `x \<noteq> z` `A =a [x \<leftrightarrow> z] \<cdot> C` `x \<notin> FV C` Z
@@ -250,11 +224,87 @@ corollary pretrm_alpha_equiv_transp:
   shows "transp pretrm_alpha_equiv"
 unfolding transp_def using pretrm_alpha_equiv_transitive by auto
 
+type_synonym 'a typing_ctx = "'a \<rightharpoonup> type"
+
+fun pretrm_infer_type :: "'a typing_ctx \<Rightarrow> 'a pretrm \<Rightarrow> type option" where
+  "pretrm_infer_type \<Gamma> (Var x) = \<Gamma> x"
+| "pretrm_infer_type \<Gamma> (App A B) = (case pretrm_infer_type \<Gamma> A of
+     Some (TArr \<tau> \<sigma>) \<Rightarrow> (case pretrm_infer_type \<Gamma> B of
+       Some \<tau>' \<Rightarrow> (if \<tau> = \<tau>' then Some \<sigma> else None)
+     | _ \<Rightarrow> None)
+   | _ \<Rightarrow> None)"
+| "pretrm_infer_type \<Gamma> (Fn x \<tau> A) = (case pretrm_infer_type (\<Gamma>(x := Some \<tau>)) A of
+     Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>)
+   | _ \<Rightarrow> None)"
+
+lemma pretrm_inference_ctx_invariant:
+  assumes "A =a B" "pretrm_infer_type \<Gamma> A = pretrm_infer_type \<Gamma> B"
+  shows "pretrm_infer_type (\<Gamma>(x := Some \<tau>)) A = pretrm_infer_type (\<Gamma>(x := Some \<tau>)) B"
+sorry
+
 quotient_type 'a trm = "'a pretrm" / pretrm_alpha_equiv
 proof(rule equivpI)
   show "reflp  pretrm_alpha_equiv" using pretrm_alpha_equiv_reflp.
   show "symp   pretrm_alpha_equiv" using pretrm_alpha_equiv_symp.
   show "transp pretrm_alpha_equiv" using pretrm_alpha_equiv_transp.
+qed
+
+lift_definition infer_type :: "'a typing_ctx \<Rightarrow> 'a trm \<Rightarrow> type option" is pretrm_infer_type
+proof -
+  fix p1 p2 :: "'a pretrm" and \<Gamma> :: "'a typing_ctx"
+  assume "p1 =a p2"
+  thus "pretrm_infer_type \<Gamma> p1 = pretrm_infer_type \<Gamma> p2"
+
+  proof(induction rule: pretrm_alpha_equiv.induct)
+    case (var x)
+      thus ?case by auto
+    next
+    case (app A B C D)
+      thus ?case proof(cases "pretrm_infer_type \<Gamma> A")
+        case None
+          thus ?thesis using app.IH by auto
+        next
+        case (Some T)
+          thus ?thesis proof(cases T)
+            case (TVar t)
+              thus ?thesis using `pretrm_infer_type \<Gamma> A = Some T` app.IH by auto
+            next
+            case (TArr \<tau> \<sigma>)
+              thus ?thesis proof(cases "pretrm_infer_type \<Gamma> B")
+                case None
+                  thus ?thesis using `pretrm_infer_type \<Gamma> A = Some T` app.IH by auto
+                next
+                case (Some T')
+                  thus ?thesis proof(cases "T' = \<tau>")
+                    case False
+                      thus ?thesis using
+                        `pretrm_infer_type \<Gamma> A = Some T`
+                        `T = TArr \<tau> \<sigma>`
+                        `pretrm_infer_type \<Gamma> B = Some T'`
+                        app.IH by auto
+                    next
+                    case True
+                      thus ?thesis using
+                        `pretrm_infer_type \<Gamma> A = Some T`
+                        `T = TArr \<tau> \<sigma>`
+                        `pretrm_infer_type \<Gamma> B = Some T'`
+                        app.IH by (metis option.simps(5) pretrm_infer_type.simps(2) type.simps(6))
+                    next
+                  qed
+                next
+              qed
+            next
+          qed
+        next
+      qed
+    next
+    case (fn1 A B x \<tau>)
+      thus ?case using pretrm_inference_ctx_invariant using pretrm_infer_type.simps by fastforce
+    next
+    case (fn2 a b A B \<tau>)
+      thus ?case sorry
+    next
+  qed
 qed
 
 end

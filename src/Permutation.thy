@@ -65,6 +65,21 @@ proof(cases s)
   next
 qed
 
+lemma swp_compose_push:
+  shows
+    "preprm_compose (preprm_unit a b) (preprm_unit c d) =p
+     preprm_compose (preprm_unit c d) (preprm_unit
+      (preprm_apply (preprm_unit c d) a)
+      (preprm_apply (preprm_unit c d) b))"
+unfolding preprm_unit_def preprm_compose_def preprm_ext_def proof
+  fix x
+  consider "x = a" | "x = b" | "x = c" | "x = d" | "x \<noteq> a \<and> x \<noteq> b \<and> x \<noteq> c \<and> x \<noteq> d" by auto
+  thus
+    "preprm_apply ([(a, b)] @ [(c, d)]) x =
+     preprm_apply ([(c, d)] @ [(preprm_apply [(c, d)] a, preprm_apply [(c, d)] b)]) x"
+   by(cases, simp_all)
+qed
+
 lemma preprm_ext_reflexive:
   shows "x =p x"
 unfolding preprm_ext_def by auto
@@ -175,6 +190,10 @@ definition prm_apply_set :: "'a prm \<Rightarrow> 'a set \<Rightarrow> 'a set" (
 
 lift_definition prm_unit :: "'a \<Rightarrow> 'a \<Rightarrow> 'a prm" ("[_ \<leftrightarrow> _]") is preprm_unit.
 
+lemma prm_compose_push:
+  shows "[a \<leftrightarrow> b] \<circ> [c \<leftrightarrow> d] = [c \<leftrightarrow> d] \<circ> [[c \<leftrightarrow> d] $ a \<leftrightarrow> [c \<leftrightarrow> d] $ b]"
+by(transfer, metis swp_compose_push)
+
 lemma prm_apply_composition:
   shows "f \<circ> g $ x = f $ (g $ x)"
 by(transfer, metis preprm_apply_composition)
@@ -200,11 +219,6 @@ lemma prm_unit_commutes:
   fixes a b :: 'a
   shows "[a \<leftrightarrow> b] = [b \<leftrightarrow> a]"
 by (transfer, metis preprm_unit_commutes)
-
-lemma prm_unit_transitive:
-  fixes a b c :: 'a
-  shows "[a \<leftrightarrow> b] \<circ> [b \<leftrightarrow> c] = [a \<leftrightarrow> c]"
-sorry
 
 lemma prm_unit_involution:
   fixes a b :: 'a
