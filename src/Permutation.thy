@@ -21,7 +21,11 @@ definition preprm_unit :: "'a \<Rightarrow> 'a \<Rightarrow> 'a preprm" where
   "preprm_unit a b \<equiv> [(a, b)]"
 
 definition preprm_ext :: "'a preprm \<Rightarrow> 'a preprm \<Rightarrow> bool" (infix "=p" 100) where
-  "\<pi>\<^sub>1 =p \<pi>\<^sub>2 \<equiv> \<forall>x. preprm_apply \<pi>\<^sub>1 x = preprm_apply \<pi>\<^sub>2 x"
+  "\<pi> =p \<sigma> \<equiv> \<forall>x. preprm_apply \<pi> x = preprm_apply \<sigma> x"
+
+lemma swp_decompose:
+  shows "\<exists>a b. s = (a, b)"
+by auto
 
 lemma swp_apply_unequal:
   assumes "x \<noteq> y"
@@ -132,6 +136,10 @@ lemma preprm_unit_inaction:
   shows "preprm_apply (preprm_unit a b) x = x"
 unfolding preprm_unit_def using assms by simp
 
+lemma preprm_unit_action:
+  shows "preprm_apply (preprm_unit a b) a = b"
+unfolding preprm_unit_def by simp
+
 lemma preprm_unit_commutes:
   shows "preprm_unit a b =p preprm_unit b a"
 unfolding preprm_ext_def preprm_unit_def
@@ -168,6 +176,30 @@ lemma preprm_compose_right_id:
 unfolding preprm_ext_def preprm_compose_def preprm_id_def
 by simp
 
+lemma preprm_apply_injective:
+  shows "inj (preprm_apply \<pi>)"
+unfolding inj_on_def proof(rule+)
+  fix x y
+  assume "preprm_apply \<pi> x = preprm_apply \<pi> y"
+  thus "x = y" proof(induction \<pi>)
+    case Nil
+      thus ?case by auto
+    next
+    case (Cons s ss)
+      hence "swp_apply s (preprm_apply ss x) = swp_apply s (preprm_apply ss y)" by auto
+      thus ?case using swp_apply_unequal Cons.IH by metis
+    next
+  qed
+qed
+
+lemma preprm_disagreement_composition:
+  assumes "a \<noteq> b" "b \<noteq> c" "a \<noteq> c"
+  shows "{x.
+    preprm_apply (preprm_compose (preprm_unit a b) (preprm_unit b c)) x \<noteq>
+    preprm_apply (preprm_unit a c) x
+  } = {a, b}"
+sorry
+
 quotient_type 'a prm = "'a preprm" / preprm_ext
 proof(rule equivpI)
   show "reflp preprm_ext" using preprm_ext_reflp.
@@ -185,35 +217,40 @@ lift_definition prm_compose :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a prm
 unfolding preprm_ext_def
 by(simp only: preprm_apply_composition, simp)
 
-definition prm_apply_set :: "'a prm \<Rightarrow> 'a set \<Rightarrow> 'a set" (infix "{$}" 140) where
-  "prm_apply_set \<pi> S \<equiv> image (prm_apply \<pi>) S"
-
 lift_definition prm_unit :: "'a \<Rightarrow> 'a \<Rightarrow> 'a prm" ("[_ \<leftrightarrow> _]") is preprm_unit.
 
 lemma prm_compose_push:
-  shows "[a \<leftrightarrow> b] \<circ> [c \<leftrightarrow> d] = [c \<leftrightarrow> d] \<circ> [[c \<leftrightarrow> d] $ a \<leftrightarrow> [c \<leftrightarrow> d] $ b]"
+  fixes a b c d :: 'a
+  shows "[c \<leftrightarrow> d] \<circ> [a \<leftrightarrow> b] = [a \<leftrightarrow> b] \<circ> [[a \<leftrightarrow> b] $ c \<leftrightarrow> [a \<leftrightarrow> b] $ d]"
 by(transfer, metis swp_compose_push)
 
 lemma prm_apply_composition:
+  fixes f g :: "'a prm" and x :: 'a
   shows "f \<circ> g $ x = f $ (g $ x)"
 by(transfer, metis preprm_apply_composition)
 
 lemma prm_apply_unequal:
+  fixes \<pi> :: "'a prm" and x y :: 'a
   assumes "x \<noteq> y"
   shows "\<pi> $ x \<noteq> \<pi> $ y"
-using assms by(transfer, metis preprm_apply_unequal)
+using assms by (transfer, metis preprm_apply_unequal)
 
 lemma prm_unit_equal_id:
   fixes a :: 'a
   shows "[a \<leftrightarrow> a] = \<epsilon>"
-by(transfer, metis preprm_unit_equal)
+by (transfer, metis preprm_unit_equal)
 
 lemma prm_unit_inaction:
   fixes a b x :: 'a
   assumes "x \<noteq> a" and "x \<noteq> b"
   shows "[a \<leftrightarrow> b] $ x = x"
 using assms
-by(transfer, metis preprm_unit_inaction)
+by (transfer, metis preprm_unit_inaction)
+
+lemma prm_unit_action:
+  fixes a b :: 'a
+  shows "[a \<leftrightarrow> b] $ a = b"
+by (transfer, metis preprm_unit_action)
 
 lemma prm_unit_commutes:
   fixes a b :: 'a
@@ -223,7 +260,7 @@ by (transfer, metis preprm_unit_commutes)
 lemma prm_unit_involution:
   fixes a b :: 'a
   shows "[a \<leftrightarrow> b] \<circ> [a \<leftrightarrow> b] = \<epsilon>"
-by(transfer, metis preprm_unit_involution)
+by (transfer, metis preprm_unit_involution)
 
 lemma prm_unit_transfers:
   fixes a b x y :: 'a
@@ -251,15 +288,108 @@ lemma prm_compose_right_id:
   shows "f \<circ> \<epsilon> = f"
 by(transfer, metis preprm_compose_right_id)
 
+lemma prm_apply_injective:
+  shows "inj (prm_apply \<pi>)"
+by(transfer, metis preprm_apply_injective)
 
+definition prm_set :: "'a prm \<Rightarrow> 'a set \<Rightarrow> 'a set" (infix "{$}" 140) where
+  "prm_set \<pi> S \<equiv> image (prm_apply \<pi>) S"
 
-interpretation prm: semigroup prm_compose
-unfolding semigroup_def
-using prm_compose_associative
-by auto
+lemma prm_set_injective:
+  shows "inj (prm_set \<pi>)"
+unfolding inj_on_def prm_set_def using prm_apply_injective inj_image_eq_iff by metis
 
-interpretation prm: monoid prm_compose prm_id
-unfolding monoid_def monoid_axioms_def
-using prm.semigroup_axioms prm_compose_left_id prm_compose_right_id
-by auto
+lemma prm_set_membership:
+  assumes "x \<in> S"
+  shows "\<pi> $ x \<in> \<pi> {$} S"
+using assms unfolding prm_set_def by simp
+
+lemma prm_set_singleton:
+  shows "\<pi> {$} {x} = {\<pi> $ x}"
+unfolding prm_set_def by auto
+
+lemma prm_set_unit_inaction:
+  assumes "a \<notin> S" and "b \<notin> S"
+  shows "[a \<leftrightarrow> b] {$} S = S"
+proof
+  show "[a \<leftrightarrow> b] {$} S \<subseteq> S" proof
+    fix x
+    assume H: "x \<in> [a \<leftrightarrow> b] {$} S"
+    from this obtain y where "x = [a \<leftrightarrow> b] $ y" unfolding prm_set_def using imageE by metis
+    hence "y \<in> S" using H inj_image_mem_iff prm_apply_injective prm_set_def by metis
+    hence "y \<noteq> a" and "y \<noteq> b" using assms by auto
+    hence "x = y" using prm_unit_inaction `x = [a \<leftrightarrow> b] $ y` by metis
+    thus "x \<in> S" using `y \<in> S` by auto
+  qed
+  show "S \<subseteq> [a \<leftrightarrow> b] {$} S" proof
+    fix x
+    assume H: "x \<in> S"
+    hence "x \<noteq> a" and "x \<noteq> b" using assms by auto
+    hence "x = [a \<leftrightarrow> b] $ x" using prm_unit_inaction by metis
+    thus "x \<in> [a \<leftrightarrow> b] {$} S" unfolding prm_set_def using H by simp
+  qed
+qed
+
+lemma prm_set_unit_action:
+  assumes "a \<in> S" and "b \<notin> S"
+  shows "[a \<leftrightarrow> b] {$} S = S - {a} \<union> {b}"
+proof
+  show "[a \<leftrightarrow> b] {$} S \<subseteq> S - {a} \<union> {b}" proof
+    fix x
+    assume H: "x \<in> [a \<leftrightarrow> b] {$} S"
+    from this obtain y where "x = [a \<leftrightarrow> b] $ y" unfolding prm_set_def using imageE by metis
+    hence "y \<in> S" using H inj_image_mem_iff prm_apply_injective prm_set_def by metis
+    hence "y \<noteq> b" using assms by auto
+    consider "y = a" | "y \<noteq> a" by auto
+    thus "x \<in> S - {a} \<union> {b}" proof(cases)
+      case 1
+        hence "x = b" using `x = [a \<leftrightarrow> b] $ y` using prm_unit_action by metis
+        thus ?thesis by auto
+      next
+      case 2
+        hence "x = y" using `x = [a \<leftrightarrow> b] $ y` using prm_unit_inaction `y \<noteq> b` by metis
+        hence "x \<in> S" and "x \<noteq> a" using `y \<in> S` `y \<noteq> a` by auto
+        thus ?thesis by auto
+      next
+    qed
+  qed
+  show "S - {a} \<union> {b} \<subseteq> [a \<leftrightarrow> b] {$} S" proof
+    fix x
+    assume H: "x \<in> S - {a} \<union> {b}"
+    hence "x \<noteq> a" using assms by auto
+    consider "x = b" | "x \<noteq> b" by auto
+    thus "x \<in> [a \<leftrightarrow> b] {$} S" proof(cases)
+      case 1
+        hence "x = [a \<leftrightarrow> b] $ a" using prm_unit_action by metis
+        thus ?thesis using `a \<in> S` prm_set_membership by metis
+      next
+      case 2
+        hence "x \<in> S" using H by auto
+        moreover have "x = [a \<leftrightarrow> b] $ x" using prm_unit_inaction `x \<noteq> a` `x \<noteq> b` by metis
+        ultimately show ?thesis using prm_set_membership by metis
+      next
+    qed
+  qed
+qed
+
+lemma prm_set_distributes_union:
+  shows "\<pi> {$} (S \<union> T) = (\<pi> {$} S) \<union> (\<pi> {$} T)"
+unfolding prm_set_def by auto
+
+lemma prm_set_distributes_difference:
+  shows "\<pi> {$} (S - T) = (\<pi> {$} S) - (\<pi> {$} T)"
+unfolding prm_set_def using prm_apply_injective image_set_diff by metis
+
+definition prm_disagreement :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a set" where
+  "prm_disagreement \<pi> \<sigma> == {x. \<pi> $ x \<noteq> \<sigma> $ x}"
+
+lemma prm_agreement:
+  assumes "x \<notin> prm_disagreement \<pi> \<sigma>"
+  shows "\<pi> $ x = \<sigma> $ x"
+using assms unfolding prm_disagreement_def by auto
+
+lemma prm_disagreement_composition:
+  assumes "a \<noteq> b" "b \<noteq> c" "a \<noteq> c"
+  shows "prm_disagreement ([a \<leftrightarrow> b] \<circ> [b \<leftrightarrow> c]) [a \<leftrightarrow> c] = {a, b}"
+using assms unfolding prm_disagreement_def sorry
 end
