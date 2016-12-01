@@ -38,6 +38,7 @@ fun pretrm_size :: "'a pretrm \<Rightarrow> nat" where
 | "pretrm_size (App A B) = pretrm_size A + pretrm_size B + 1"
 | "pretrm_size (Fn x T A) = pretrm_size A + 1"
 
+section{*lemmas*}
 lemma pretrm_size_nonzero:
   shows "pretrm_size M \<noteq> 0"
 by(cases M, simp_all)
@@ -227,6 +228,8 @@ using assms proof(induction M)
   next
 qed
 
+section{*equivalence relation*}
+
 lemma pretrm_alpha_equiv_reflexive:
   shows "M =a M"
 by(induction M, (metis pretrm_alpha_equiv.intros)+)
@@ -394,19 +397,52 @@ corollary pretrm_alpha_equiv_transp:
   shows "transp pretrm_alpha_equiv"
 unfolding transp_def using pretrm_alpha_equiv_transitive by auto
 
+section{*typing judgement*}
 type_synonym 'a typing_ctx = "'a \<rightharpoonup> type"
 
-fun pretrm_infer_type :: "'a typing_ctx \<Rightarrow> 'a pretrm \<Rightarrow> type option" where
-  "pretrm_infer_type \<Gamma> (Var x) = \<Gamma> x"
-| "pretrm_infer_type \<Gamma> (App A B) = (case pretrm_infer_type \<Gamma> A of
-     Some (TArr \<tau> \<sigma>) \<Rightarrow> (case pretrm_infer_type \<Gamma> B of
-       Some \<tau>' \<Rightarrow> (if \<tau> = \<tau>' then Some \<sigma> else None)
-     | _ \<Rightarrow> None)
-   | _ \<Rightarrow> None)"
-| "pretrm_infer_type \<Gamma> (Fn x \<tau> A) = (case pretrm_infer_type (\<Gamma>(x := Some \<tau>)) A of
-     Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>)
-   | _ \<Rightarrow> None)"
+(* define permutations on typing contexts? *)
+(* somehow define the typing rules on the quotient type? *)
 
+inductive typing :: "'a typing_ctx \<Rightarrow> 'a pretrm \<Rightarrow> type \<Rightarrow> bool" ("_ \<turnstile> _ : _") where
+  tvar: "\<Gamma> x = Some \<tau> \<Longrightarrow> \<Gamma> \<turnstile> Var x : \<tau>"
+| tapp: "\<lbrakk>\<Gamma> \<turnstile> f : TArr \<tau> \<sigma>; \<Gamma> \<turnstile> x : \<tau>\<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> App f x : \<sigma>"
+| tfn:  "\<Gamma>(x \<mapsto> \<tau>) \<turnstile> M : \<sigma> \<Longrightarrow> \<Gamma> \<turnstile> Fn x \<tau> M : TArr \<tau> \<sigma>"
+
+inductive_cases tvarE: "\<Gamma> \<turnstile> Var x : \<tau>"
+inductive_cases tappE: "\<Gamma> \<turnstile> App f x : \<sigma>"
+inductive_cases tfnE:  "\<Gamma> \<turnstile> Fn x \<tau> M : \<sigma>"
+
+lemma typing_prm_invariant:
+  assumes "\<Gamma> \<turnstile> X : \<tau>"
+  shows "\<Gamma>' \<turnstile> \<pi> \<cdot> X : \<tau>"
+
+
+lemma typing_alpha_equiv_invariant:
+  assumes "X =a Y" and "\<Gamma> \<turnstile> X : \<tau>" "\<Gamma> \<turnstile> Y : \<sigma>"
+  shows "\<tau> = \<sigma>"
+using assms proof(induction arbitrary: \<Gamma> \<tau> \<sigma> rule: pretrm_alpha_equiv.induct)
+  case (var x)
+    hence "\<Gamma> x = Some \<tau>" and "\<Gamma> x = Some \<sigma>" using tvarE by metis+
+    thus ?case by auto
+  next
+  case (app A B C D)
+    obtain \<alpha> where A: "\<Gamma> \<turnstile> A : TArr \<alpha> \<tau>" and "\<Gamma> \<turnstile> C : \<alpha>" using app.prems app.IH tappE by metis
+    obtain \<beta> where B: "\<Gamma> \<turnstile> B : TArr \<beta> \<sigma>" and "\<Gamma> \<turnstile> D : \<beta>" using app.prems app.IH tappE by metis
+    thus ?case using A B using app.IH type.inject by metis
+  next
+  case (fn1 A B x T)
+    obtain \<alpha> \<beta>
+      where A: "\<Gamma>(x \<mapsto> T) \<turnstile> A : \<alpha>" "\<tau> = TArr T \<alpha>"
+      and   B: "\<Gamma>(x \<mapsto> T) \<turnstile> B : \<beta>" "\<sigma> = TArr T \<beta>"
+      using fn1.prems tfnE by metis
+    thus ?case using fn1.prems fn1.IH by metis
+  next
+  case (fn2 a b A B T)
+    thus ?case sorry
+  next
+qed
+
+section{*quotient type*}
 quotient_type 'a trm = "'a pretrm" / pretrm_alpha_equiv
 proof(rule equivpI)
   show "reflp  pretrm_alpha_equiv" using pretrm_alpha_equiv_reflp.
