@@ -198,7 +198,29 @@ lemma preprm_disagreement_composition:
     preprm_apply (preprm_compose (preprm_unit a b) (preprm_unit b c)) x \<noteq>
     preprm_apply (preprm_unit a c) x
   } = {a, b}"
-sorry
+unfolding preprm_unit_def preprm_compose_def proof
+  show "{x. preprm_apply ([(a, b)] @ [(b, c)]) x \<noteq> preprm_apply [(a, c)] x} \<subseteq> {a, b}"
+  proof
+    fix x
+    have "x \<notin> {a, b} \<Longrightarrow> x \<notin> {x. preprm_apply ([(a, b)] @ [(b, c)]) x \<noteq> preprm_apply [(a, c)] x}"
+    proof -
+      assume "x \<notin> {a, b}"
+      hence "x \<noteq> a \<and> x \<noteq> b" by auto
+      hence "preprm_apply ([(a, b)] @ [(b, c)]) x = preprm_apply [(a, c)] x" by simp
+      thus "x \<notin> {x. preprm_apply ([(a, b)] @ [(b, c)]) x \<noteq> preprm_apply [(a, c)] x}" by auto
+    qed
+    thus "x \<in> {x. preprm_apply ([(a, b)] @ [(b, c)]) x \<noteq> preprm_apply [(a, c)] x} \<Longrightarrow> x \<in> {a, b}"
+      by blast
+  qed
+  show "{a, b} \<subseteq> {x. preprm_apply ([(a, b)] @ [(b, c)]) x \<noteq> preprm_apply [(a, c)] x}"
+  proof
+    fix x
+    assume "x \<in> {a, b}"
+    from this consider "x = a" | "x = b" by auto
+    thus "x \<in> {x. preprm_apply ([(a, b)] @ [(b, c)]) x \<noteq> preprm_apply [(a, c)] x}"
+      using assms by(cases, simp_all)
+  qed
+qed
 
 quotient_type 'a prm = "'a preprm" / preprm_ext
 proof(rule equivpI)
@@ -391,5 +413,5 @@ using assms unfolding prm_disagreement_def by auto
 lemma prm_disagreement_composition:
   assumes "a \<noteq> b" "b \<noteq> c" "a \<noteq> c"
   shows "prm_disagreement ([a \<leftrightarrow> b] \<circ> [b \<leftrightarrow> c]) [a \<leftrightarrow> c] = {a, b}"
-using assms unfolding prm_disagreement_def sorry
+using assms unfolding prm_disagreement_def by(transfer, metis preprm_disagreement_composition)
 end
