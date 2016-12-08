@@ -3,8 +3,8 @@ imports Main
 begin
 
 locale fresh =
-  fixes fresh :: "'a set \<Rightarrow> 'a"
-  assumes "finite S \<Longrightarrow> fresh S \<notin> S"
+  fixes gen_fresh :: "'a set \<Rightarrow> 'a"
+  assumes "finite S \<Longrightarrow> gen_fresh S \<notin> S"
 
 definition fresh_nat :: "nat set \<Rightarrow> nat" where
   "fresh_nat S \<equiv> Max S + 1"
