@@ -23,10 +23,6 @@ definition preprm_unit :: "'a \<Rightarrow> 'a \<Rightarrow> 'a preprm" where
 definition preprm_ext :: "'a preprm \<Rightarrow> 'a preprm \<Rightarrow> bool" (infix "=p" 100) where
   "\<pi> =p \<sigma> \<equiv> \<forall>x. preprm_apply \<pi> x = preprm_apply \<sigma> x"
 
-lemma swp_decompose:
-  shows "\<exists>a b. s = (a, b)"
-by auto
-
 lemma swp_apply_unequal:
   assumes "x \<noteq> y"
   shows "swp_apply s x \<noteq> swp_apply s y"
@@ -67,21 +63,6 @@ proof(cases s)
       next
     qed
   next
-qed
-
-lemma swp_compose_push:
-  shows
-    "preprm_compose (preprm_unit a b) (preprm_unit c d) =p
-     preprm_compose (preprm_unit c d) (preprm_unit
-      (preprm_apply (preprm_unit c d) a)
-      (preprm_apply (preprm_unit c d) b))"
-unfolding preprm_unit_def preprm_compose_def preprm_ext_def proof
-  fix x
-  consider "x = a" | "x = b" | "x = c" | "x = d" | "x \<noteq> a \<and> x \<noteq> b \<and> x \<noteq> c \<and> x \<noteq> d" by auto
-  thus
-    "preprm_apply ([(a, b)] @ [(c, d)]) x =
-     preprm_apply ([(c, d)] @ [(preprm_apply [(c, d)] a, preprm_apply [(c, d)] b)]) x"
-   by(cases, simp_all)
 qed
 
 lemma preprm_ext_reflexive:
@@ -126,7 +107,7 @@ using assms proof(induction \<pi>, simp)
   next
 qed
 
-lemma preprm_unit_equal:
+lemma preprm_unit_equal_id:
   shows "preprm_unit a a =p preprm_id"
 unfolding preprm_ext_def preprm_unit_def preprm_id_def
 by simp
@@ -150,30 +131,9 @@ lemma preprm_unit_involution:
 unfolding preprm_ext_def preprm_compose_def preprm_unit_def preprm_id_def
 by simp
 
-lemma preprm_unit_transfers:
-  fixes a b x y :: 'a
-  assumes "x = preprm_apply (preprm_unit a b) y"
-  shows "preprm_apply (preprm_unit a b) x = y"
-using assms unfolding preprm_unit_def by simp
-
 lemma preprm_apply_id:
   shows "preprm_apply preprm_id x = x"
 unfolding preprm_id_def
-by simp
-
-lemma preprm_compose_associative:
-  shows "preprm_compose (preprm_compose f g) h =p preprm_compose f (preprm_compose g h)"
-unfolding preprm_ext_def preprm_compose_def
-by simp
-
-lemma preprm_compose_left_id:
-  shows "preprm_compose preprm_id f =p f"
-unfolding preprm_ext_def preprm_compose_def preprm_id_def
-by simp
-
-lemma preprm_compose_right_id:
-  shows "preprm_compose f preprm_id =p f"
-unfolding preprm_ext_def preprm_compose_def preprm_id_def
 by simp
 
 lemma preprm_apply_injective:
@@ -235,20 +195,15 @@ lift_definition prm_apply :: "'a prm \<Rightarrow> 'a \<Rightarrow> 'a" (infix "
 unfolding preprm_ext_def
 using preprm_apply.simps by auto
 
-lift_definition prm_compose :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a prm" (infixr "\<circ>" 145) is preprm_compose
+lift_definition prm_compose :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a prm" (infixr "\<diamondop>" 145) is preprm_compose
 unfolding preprm_ext_def
 by(simp only: preprm_apply_composition, simp)
 
 lift_definition prm_unit :: "'a \<Rightarrow> 'a \<Rightarrow> 'a prm" ("[_ \<leftrightarrow> _]") is preprm_unit.
 
-lemma prm_compose_push:
-  fixes a b c d :: 'a
-  shows "[c \<leftrightarrow> d] \<circ> [a \<leftrightarrow> b] = [a \<leftrightarrow> b] \<circ> [[a \<leftrightarrow> b] $ c \<leftrightarrow> [a \<leftrightarrow> b] $ d]"
-by(transfer, metis swp_compose_push)
-
 lemma prm_apply_composition:
   fixes f g :: "'a prm" and x :: 'a
-  shows "f \<circ> g $ x = f $ (g $ x)"
+  shows "f \<diamondop> g $ x = f $ (g $ x)"
 by(transfer, metis preprm_apply_composition)
 
 lemma prm_apply_unequal:
@@ -260,7 +215,7 @@ using assms by (transfer, metis preprm_apply_unequal)
 lemma prm_unit_equal_id:
   fixes a :: 'a
   shows "[a \<leftrightarrow> a] = \<epsilon>"
-by (transfer, metis preprm_unit_equal)
+by (transfer, metis preprm_unit_equal_id)
 
 lemma prm_unit_inaction:
   fixes a b x :: 'a
@@ -281,34 +236,13 @@ by (transfer, metis preprm_unit_commutes)
 
 lemma prm_unit_involution:
   fixes a b :: 'a
-  shows "[a \<leftrightarrow> b] \<circ> [a \<leftrightarrow> b] = \<epsilon>"
+  shows "[a \<leftrightarrow> b] \<diamondop> [a \<leftrightarrow> b] = \<epsilon>"
 by (transfer, metis preprm_unit_involution)
-
-lemma prm_unit_transfers:
-  fixes a b x y :: 'a
-  assumes "x = [a \<leftrightarrow> b] $ y"
-  shows "[a \<leftrightarrow> b] $ x = y"
-using assms by(transfer, metis preprm_unit_transfers)
 
 lemma prm_apply_id:
   fixes x :: 'a
   shows "\<epsilon> $ x = x"
 by(transfer, metis preprm_apply_id)
-
-lemma prm_compose_associative:
-  fixes f g h :: "'a prm"
-  shows "(f \<circ> g) \<circ> h = f \<circ> (g \<circ> h)"
-by(transfer, metis preprm_compose_associative)
-
-lemma prm_compose_left_id:
-  fixes f :: "'a prm"
-  shows "\<epsilon> \<circ> f = f"
-by(transfer, metis preprm_compose_left_id)
-
-lemma prm_compose_right_id:
-  fixes f :: "'a prm"
-  shows "f \<circ> \<epsilon> = f"
-by(transfer, metis preprm_compose_right_id)
 
 lemma prm_apply_injective:
   shows "inj (prm_apply \<pi>)"
@@ -316,10 +250,6 @@ by(transfer, metis preprm_apply_injective)
 
 definition prm_set :: "'a prm \<Rightarrow> 'a set \<Rightarrow> 'a set" (infix "{$}" 140) where
   "prm_set \<pi> S \<equiv> image (prm_apply \<pi>) S"
-
-lemma prm_set_injective:
-  shows "inj (prm_set \<pi>)"
-unfolding inj_on_def prm_set_def using prm_apply_injective inj_image_eq_iff by metis
 
 lemma prm_set_membership:
   assumes "x \<in> S"
@@ -405,13 +335,8 @@ unfolding prm_set_def using prm_apply_injective image_set_diff by metis
 definition prm_disagreement :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a set" where
   "prm_disagreement \<pi> \<sigma> == {x. \<pi> $ x \<noteq> \<sigma> $ x}"
 
-lemma prm_agreement:
-  assumes "x \<notin> prm_disagreement \<pi> \<sigma>"
-  shows "\<pi> $ x = \<sigma> $ x"
-using assms unfolding prm_disagreement_def by auto
-
 lemma prm_disagreement_composition:
   assumes "a \<noteq> b" "b \<noteq> c" "a \<noteq> c"
-  shows "prm_disagreement ([a \<leftrightarrow> b] \<circ> [b \<leftrightarrow> c]) [a \<leftrightarrow> c] = {a, b}"
+  shows "prm_disagreement ([a \<leftrightarrow> b] \<diamondop> [b \<leftrightarrow> c]) [a \<leftrightarrow> c] = {a, b}"
 using assms unfolding prm_disagreement_def by(transfer, metis preprm_disagreement_composition)
 end
