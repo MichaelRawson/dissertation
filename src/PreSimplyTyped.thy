@@ -18,7 +18,7 @@ fun ptrm_fvs :: "'a ptrm \<Rightarrow> 'a set" where
 | "ptrm_fvs (PApp A B) = ptrm_fvs A \<union> ptrm_fvs B"
 | "ptrm_fvs (PFn x _ A) = ptrm_fvs A - {x}"
 
-fun ptrm_apply_prm :: "'a prm \<Rightarrow> 'a ptrm \<Rightarrow> 'a ptrm" (infixr "\<cdot>" 150) where
+fun ptrm_apply_prm :: "'a prm \<Rightarrow> 'a ptrm \<Rightarrow> 'a ptrm" (infixr "\<bullet>" 150) where
   "ptrm_apply_prm \<pi> (PVar x) = PVar (\<pi> $ x)"
 | "ptrm_apply_prm \<pi> (PApp A B) = PApp (ptrm_apply_prm \<pi> A) (ptrm_apply_prm \<pi> B)"
 | "ptrm_apply_prm \<pi> (PFn x T A) = PFn (\<pi> $ x) T (ptrm_apply_prm \<pi> A)"
@@ -27,7 +27,7 @@ inductive ptrm_alpha_equiv :: "'a ptrm \<Rightarrow> 'a ptrm \<Rightarrow> bool"
   var:        "(PVar x) =a (PVar x)"
 | app:        "\<lbrakk>A =a B; C =a D\<rbrakk> \<Longrightarrow> (PApp A C) =a (PApp B D)"
 | fn1:        "A =a B \<Longrightarrow> (PFn x T A) =a (PFn x T B)"
-| fn2:        "\<lbrakk>a \<noteq> b; A =a [a \<leftrightarrow> b] \<cdot> B; a \<notin> ptrm_fvs B\<rbrakk> \<Longrightarrow> (PFn a T A) =a (PFn b T B)"
+| fn2:        "\<lbrakk>a \<noteq> b; A =a [a \<leftrightarrow> b] \<bullet> B; a \<notin> ptrm_fvs B\<rbrakk> \<Longrightarrow> (PFn a T A) =a (PFn b T B)"
 
 inductive_cases varE: "PVar x =a Y"
 inductive_cases appE: "PApp A B =a Y"
@@ -51,11 +51,11 @@ lemma ptrm_size_fn:
 by(induction A, simp_all)
 
 lemma ptrm_prm_apply_id:
-  shows "\<epsilon> \<cdot> X = X"
+  shows "\<epsilon> \<bullet> X = X"
 by(induction X, simp_all add: prm_apply_id)
 
 lemma ptrm_prm_apply_compose:
-  shows "\<pi> \<cdot> \<sigma> \<cdot> X = (\<pi> \<diamondop> \<sigma>) \<cdot> X"
+  shows "\<pi> \<bullet> \<sigma> \<bullet> X = (\<pi> \<diamondop> \<sigma>) \<bullet> X"
 by(induction X, simp_all add: prm_apply_composition)
 
 lemma ptrm_fvs_finite:
@@ -63,26 +63,26 @@ lemma ptrm_fvs_finite:
 by(induction X, auto)
 
 lemma ptrm_prm_fvs:
-  shows "ptrm_fvs (\<pi> \<cdot> X) = \<pi> {$} ptrm_fvs X"
+  shows "ptrm_fvs (\<pi> \<bullet> X) = \<pi> {$} ptrm_fvs X"
 proof(induction X)
   case (PVar x)
-    have "ptrm_fvs (\<pi> \<cdot> PVar x) = ptrm_fvs (PVar (\<pi> $ x))" by simp
+    have "ptrm_fvs (\<pi> \<bullet> PVar x) = ptrm_fvs (PVar (\<pi> $ x))" by simp
     moreover have "... = {\<pi> $ x}" by simp
     moreover have "... = \<pi> {$} {x}" using prm_set_singleton by metis
     moreover have "... = \<pi> {$} ptrm_fvs (PVar x)" by simp
     ultimately show ?case by metis
   next
   case (PApp A B)
-    have "ptrm_fvs (\<pi> \<cdot> PApp A B) = ptrm_fvs (PApp (\<pi> \<cdot> A) (\<pi> \<cdot> B))" by simp
-    moreover have "... = ptrm_fvs (\<pi> \<cdot> A) \<union> ptrm_fvs (\<pi> \<cdot> B)" by simp
+    have "ptrm_fvs (\<pi> \<bullet> PApp A B) = ptrm_fvs (PApp (\<pi> \<bullet> A) (\<pi> \<bullet> B))" by simp
+    moreover have "... = ptrm_fvs (\<pi> \<bullet> A) \<union> ptrm_fvs (\<pi> \<bullet> B)" by simp
     moreover have "... = \<pi> {$} ptrm_fvs A \<union> \<pi> {$} ptrm_fvs B" using PApp.IH by metis
     moreover have "... = \<pi> {$} (ptrm_fvs A \<union> ptrm_fvs B)" using prm_set_distributes_union by metis
     moreover have "... = \<pi> {$} ptrm_fvs (PApp A B)" by simp
     ultimately show ?case by metis
   next
   case (PFn x T A)
-    have "ptrm_fvs (\<pi> \<cdot> PFn x T A) = ptrm_fvs (PFn (\<pi> $ x) T (\<pi> \<cdot> A))" by simp
-    moreover have "... = ptrm_fvs (\<pi> \<cdot> A) - {\<pi> $ x}" by simp
+    have "ptrm_fvs (\<pi> \<bullet> PFn x T A) = ptrm_fvs (PFn (\<pi> $ x) T (\<pi> \<bullet> A))" by simp
+    moreover have "... = ptrm_fvs (\<pi> \<bullet> A) - {\<pi> $ x}" by simp
     moreover have "... = \<pi> {$} ptrm_fvs A - {\<pi> $ x}" using PFn.IH by metis
     moreover have "... = \<pi> {$} ptrm_fvs A - \<pi> {$} {x}" using prm_set_singleton by metis
     moreover have "... = \<pi> {$} (ptrm_fvs A - {x})" using prm_set_distributes_difference by metis
@@ -97,7 +97,7 @@ lemma ptrm_alpha_equiv_fvs:
 using assms proof(induction rule: ptrm_alpha_equiv.induct, simp, simp, simp)
   case (fn2 a b A B T)
     have "ptrm_fvs (PFn a T A) = ptrm_fvs A - {a}" by simp
-    moreover have "... = ptrm_fvs ([a \<leftrightarrow> b] \<cdot> B) - {a}" using fn2.IH by metis
+    moreover have "... = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B) - {a}" using fn2.IH by metis
     moreover have "... = ([a \<leftrightarrow> b] {$} ptrm_fvs B) - {a}" using ptrm_prm_fvs by metis
     moreover have "... = ptrm_fvs B - {b}"  proof -
       consider "b \<in> ptrm_fvs B" | "b \<notin> ptrm_fvs B" by auto
@@ -128,46 +128,114 @@ qed
 
 lemma ptrm_alpha_equiv_prm:
   assumes "X =a Y"
-  shows "\<pi> \<cdot> X =a \<pi> \<cdot> Y"
+  shows "\<pi> \<bullet> X =a \<pi> \<bullet> Y"
 sorry 
 
 lemma ptrm_swp_transfer:
-  assumes "[a \<leftrightarrow> b] \<cdot> X =a Y"
-  shows "X =a [a \<leftrightarrow> b] \<cdot> Y"
+  assumes "[a \<leftrightarrow> b] \<bullet> X =a Y"
+  shows "X =a [a \<leftrightarrow> b] \<bullet> Y"
 proof -
-  have "[a \<leftrightarrow> b] \<cdot> [a \<leftrightarrow> b] \<cdot> X =a [a \<leftrightarrow> b] \<cdot> Y"
+  have "[a \<leftrightarrow> b] \<bullet> [a \<leftrightarrow> b] \<bullet> X =a [a \<leftrightarrow> b] \<bullet> Y"
     using assms ptrm_alpha_equiv_prm by metis
-  hence "([a \<leftrightarrow> b] \<diamondop> [a \<leftrightarrow> b]) \<cdot> X =a [a \<leftrightarrow> b] \<cdot> Y" using ptrm_prm_apply_compose
+  hence "([a \<leftrightarrow> b] \<diamondop> [a \<leftrightarrow> b]) \<bullet> X =a [a \<leftrightarrow> b] \<bullet> Y" using ptrm_prm_apply_compose
     by metis
-  hence "\<epsilon> \<cdot> X =a [a \<leftrightarrow> b] \<cdot> Y" using prm_unit_involution by metis
+  hence "\<epsilon> \<bullet> X =a [a \<leftrightarrow> b] \<bullet> Y" using prm_unit_involution by metis
   thus ?thesis using ptrm_prm_apply_id by metis
 qed
 
+lemma ptrm_fresh_transfer:
+  assumes "a \<noteq> b" "a \<notin> ptrm_fvs A"
+  shows "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)"
+using assms proof(induction A)
+  case (PVar x)
+    hence "a \<noteq> x" by auto
+    consider "b = x" | "b \<noteq> x" by auto
+    thus ?case proof(cases)
+      assume "b = x"
+      hence "[a \<leftrightarrow> b] \<bullet> PVar x = PVar a"
+        using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(1) by metis
+      hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PVar x) = {a}" by simp
+      thus ?thesis using `a \<noteq> x` `b = x` by simp
+      next
+
+      assume "b \<noteq> x"
+      hence "[a \<leftrightarrow> b] \<bullet> PVar x = PVar x"
+        using prm_unit_inaction `a \<noteq> x` ptrm_apply_prm.simps(1) by metis
+      hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PVar x) = {x}" by simp
+      thus ?thesis using `b \<noteq> x` by simp
+    qed
+  next
+  case (PApp A B)
+    hence "a \<noteq> b" "a \<notin> ptrm_fvs A" "a \<notin> ptrm_fvs B" by auto
+    hence "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)" "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using PApp.IH by auto
+    hence "b \<notin> ptrm_fvs (PApp ([a \<leftrightarrow> b] \<bullet> A) ([a \<leftrightarrow> b] \<bullet> B))" by simp
+    thus ?case by simp
+  next
+  case (PFn x T A)
+    consider "a = x" | "a \<notin> ptrm_fvs A \<and> a \<noteq> x" using PFn.prems by auto
+    thus ?case proof(cases)
+      assume "a = x"
+      hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn b T ([a \<leftrightarrow> b] \<bullet> A)" using prm_unit_action by simp
+      thus ?thesis by simp
+      next
+
+      assume "a \<notin> ptrm_fvs A \<and> a \<noteq> x"
+      hence "a \<notin> ptrm_fvs A" "a \<noteq> x" by auto
+      hence *: "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)" using PFn by auto
+
+      consider "b = x" | "b \<noteq> x" by auto
+      thus ?thesis proof(cases)
+        assume "b = x"
+        hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn a T ([a \<leftrightarrow> b] \<bullet> A)"
+          using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(3) by metis
+        hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PFn x T A) = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A) - {a}" by simp
+        thus ?thesis using `a \<noteq> x` `b = x` * by auto
+        next
+
+        assume "b \<noteq> x"
+        hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn x T ([a \<leftrightarrow> b] \<bullet> A)"
+          using `a \<noteq> x` prm_unit_inaction ptrm_apply_prm.simps(3) by metis
+        hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PFn x T A) = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A) - {x}" by simp
+        thus ?thesis using `b \<noteq> x` * by auto
+      qed
+    qed
+  next
+qed
+
 lemma ptrm_alpha_equiv_fvs_transfer:
-  assumes "A =a [a \<leftrightarrow> b] \<cdot> B" and "a \<notin> ptrm_fvs B" and "a \<noteq> b"
+  assumes "A =a [a \<leftrightarrow> b] \<bullet> B" and "a \<notin> ptrm_fvs B"
   shows "b \<notin> ptrm_fvs A"
-proof(cases "b \<in> ptrm_fvs B")
-  case True
-    have *: "b \<notin> ptrm_fvs B - {b} \<union> {a}" using assms by simp
-    have "ptrm_fvs A = ptrm_fvs ([a \<leftrightarrow> b] \<cdot> B)" using ptrm_alpha_equiv_fvs assms by metis
-    moreover have "... = [a \<leftrightarrow> b] {$} ptrm_fvs B" using ptrm_prm_fvs by metis
-    moreover have "... = [b \<leftrightarrow> a] {$} ptrm_fvs B" using prm_unit_commutes by metis
-    moreover have "... = ptrm_fvs B - {b} \<union> {a}" using prm_set_unit_action `a \<notin> ptrm_fvs B` `b \<in> ptrm_fvs B` by metis
-    ultimately have "ptrm_fvs A = ptrm_fvs B - {b} \<union> {a}" by metis
-    thus ?thesis using * by auto
+proof(cases "a = b")
+  assume "a = b"
+  hence "A =a B" using prm_unit_equal_id ptrm_prm_apply_id assms(1) by metis
+  hence "ptrm_fvs A = ptrm_fvs B" using ptrm_alpha_equiv_fvs by auto
+  thus ?thesis using `a = b` assms(2) by auto
   next
-  case False
-    have "ptrm_fvs A = ptrm_fvs ([a \<leftrightarrow> b] \<cdot> B)" using ptrm_alpha_equiv_fvs assms by metis
-    moreover have "ptrm_fvs ([a \<leftrightarrow> b] \<cdot> B) = [a \<leftrightarrow> b] {$} ptrm_fvs B" using ptrm_prm_fvs by metis
-    moreover have "... = ptrm_fvs B" using prm_set_unit_inaction `a \<notin> ptrm_fvs B` `b \<notin> ptrm_fvs B` by metis
-    ultimately have "ptrm_fvs A = ptrm_fvs B" by metis
-    thus ?thesis using `b \<notin> ptrm_fvs B` by auto
-  next
+
+  assume "a \<noteq> b"
+  thus ?thesis proof(cases "b \<in> ptrm_fvs B")
+    case True
+      have *: "b \<notin> ptrm_fvs B - {b} \<union> {a}" using assms `a \<noteq> b` by simp
+      have "ptrm_fvs A = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using ptrm_alpha_equiv_fvs assms by metis
+      moreover have "... = [a \<leftrightarrow> b] {$} ptrm_fvs B" using ptrm_prm_fvs by metis
+      moreover have "... = [b \<leftrightarrow> a] {$} ptrm_fvs B" using prm_unit_commutes by metis
+      moreover have "... = ptrm_fvs B - {b} \<union> {a}" using prm_set_unit_action `a \<notin> ptrm_fvs B` `b \<in> ptrm_fvs B` by metis
+      ultimately have "ptrm_fvs A = ptrm_fvs B - {b} \<union> {a}" by metis
+      thus ?thesis using * by auto
+      next
+    case False
+      have "ptrm_fvs A = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using ptrm_alpha_equiv_fvs assms by metis
+      moreover have "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B) = [a \<leftrightarrow> b] {$} ptrm_fvs B" using ptrm_prm_fvs by metis
+      moreover have "... = ptrm_fvs B" using prm_set_unit_inaction `a \<notin> ptrm_fvs B` `b \<notin> ptrm_fvs B` by metis
+      ultimately have "ptrm_fvs A = ptrm_fvs B" by metis
+      thus ?thesis using `b \<notin> ptrm_fvs B` by auto
+    next
+  qed
 qed
 
 lemma ptrm_prm_agreement_equiv:
   assumes "\<And>a. a \<in> prm_disagreement \<pi> \<sigma> \<Longrightarrow> a \<notin> ptrm_fvs M"
-  shows "\<pi> \<cdot> M =a \<sigma> \<cdot> M"
+  shows "\<pi> \<bullet> M =a \<sigma> \<bullet> M"
 sorry
 
 lemma ptrm_alpha_equiv_reflexive:
@@ -184,13 +252,13 @@ lemma ptrm_alpha_equiv_symmetric:
 using assms proof(induction rule: ptrm_alpha_equiv.induct, auto simp add: ptrm_alpha_equiv.intros)
   case (fn2 a b A B T)
     have "b \<noteq> a" using `a \<noteq> b` by auto
-    have "B =a [b \<leftrightarrow> a] \<cdot> A" using `[a \<leftrightarrow> b] \<cdot> B =a A`
+    have "B =a [b \<leftrightarrow> a] \<bullet> A" using `[a \<leftrightarrow> b] \<bullet> B =a A`
       using ptrm_swp_transfer prm_unit_commutes by metis
 
-    have "b \<notin> ptrm_fvs A" using `a \<notin> ptrm_fvs B` `A =a [a \<leftrightarrow> b] \<cdot> B` `a \<noteq> b`
+    have "b \<notin> ptrm_fvs A" using `a \<notin> ptrm_fvs B` `A =a [a \<leftrightarrow> b] \<bullet> B` `a \<noteq> b`
       using ptrm_alpha_equiv_fvs_transfer by metis
 
-    show ?case using `b \<noteq> a` `B =a [b \<leftrightarrow> a] \<cdot> A` `b \<notin> ptrm_fvs A`
+    show ?case using `b \<noteq> a` `B =a [b \<leftrightarrow> a] \<bullet> A` `b \<notin> ptrm_fvs A`
       using ptrm_alpha_equiv.fn2 by metis
   next
 qed
@@ -230,18 +298,18 @@ using assms proof(induction "ptrm_size X" arbitrary: X Y Z rule: less_induct)
       hence *: "ptrm_size A < ptrm_size X" using ptrm_size_fn by auto
 
       obtain y B where "Y = PFn y T B"
-        and Y_cases: "(x = y \<and> A =a B) \<or> (x \<noteq> y \<and> A =a [x \<leftrightarrow> y] \<cdot> B \<and> x \<notin> ptrm_fvs B)"
+        and Y_cases: "(x = y \<and> A =a B) \<or> (x \<noteq> y \<and> A =a [x \<leftrightarrow> y] \<bullet> B \<and> x \<notin> ptrm_fvs B)"
         using fnE `X =a Y` `X = PFn x T A` by metis
       obtain z C where Z: "Z = PFn z T C"
-        and Z_cases: "(y = z \<and> B =a C) \<or> (y \<noteq> z \<and> B =a [y \<leftrightarrow> z] \<cdot> C \<and> y \<notin> ptrm_fvs C)"
+        and Z_cases: "(y = z \<and> B =a C) \<or> (y \<noteq> z \<and> B =a [y \<leftrightarrow> z] \<bullet> C \<and> y \<notin> ptrm_fvs C)"
         using fnE `Y =a Z` `Y = PFn y T B` by metis
 
       consider
         "x = y" "A =a B" and "y = z" "B =a C"
-      | "x = y" "A =a B" and "y \<noteq> z" "B =a [y \<leftrightarrow> z] \<cdot> C" "y \<notin> ptrm_fvs C"
-      | "x \<noteq> y" "A =a [x \<leftrightarrow> y] \<cdot> B" "x \<notin> ptrm_fvs B" and "y = z" "B =a C"
-      | "x \<noteq> y" "A =a [x \<leftrightarrow> y] \<cdot> B" "x \<notin> ptrm_fvs B" and "y \<noteq> z" "B =a [y \<leftrightarrow> z] \<cdot> C" "y \<notin> ptrm_fvs C" and "x = z"
-      | "x \<noteq> y" "A =a [x \<leftrightarrow> y] \<cdot> B" "x \<notin> ptrm_fvs B" and "y \<noteq> z" "B =a [y \<leftrightarrow> z] \<cdot> C" "y \<notin> ptrm_fvs C" and "x \<noteq> z"
+      | "x = y" "A =a B" and "y \<noteq> z" "B =a [y \<leftrightarrow> z] \<bullet> C" "y \<notin> ptrm_fvs C"
+      | "x \<noteq> y" "A =a [x \<leftrightarrow> y] \<bullet> B" "x \<notin> ptrm_fvs B" and "y = z" "B =a C"
+      | "x \<noteq> y" "A =a [x \<leftrightarrow> y] \<bullet> B" "x \<notin> ptrm_fvs B" and "y \<noteq> z" "B =a [y \<leftrightarrow> z] \<bullet> C" "y \<notin> ptrm_fvs C" and "x = z"
+      | "x \<noteq> y" "A =a [x \<leftrightarrow> y] \<bullet> B" "x \<notin> ptrm_fvs B" and "y \<noteq> z" "B =a [y \<leftrightarrow> z] \<bullet> C" "y \<notin> ptrm_fvs C" and "x \<noteq> z"
         using Y_cases Z_cases by auto
 
       thus ?thesis proof(cases)
@@ -253,30 +321,30 @@ using assms proof(induction "ptrm_size X" arbitrary: X Y Z rule: less_induct)
         next
         case 2
           have "x \<noteq> z" using `x = y` `y \<noteq> z` by metis
-          have "A =a [x \<leftrightarrow> z] \<cdot> C" using `A =a B` `B =a [y \<leftrightarrow> z] \<cdot> C` `x = y` IH * by metis
+          have "A =a [x \<leftrightarrow> z] \<bullet> C" using `A =a B` `B =a [y \<leftrightarrow> z] \<bullet> C` `x = y` IH * by metis
           have "x \<notin> ptrm_fvs C" using `x = y` `y \<notin> ptrm_fvs C` by metis
-          thus ?thesis using `x \<noteq> z` `A =a [x \<leftrightarrow> z] \<cdot> C` `x \<notin> ptrm_fvs C` X Z
+          thus ?thesis using `x \<noteq> z` `A =a [x \<leftrightarrow> z] \<bullet> C` `x \<notin> ptrm_fvs C` X Z
             using ptrm_alpha_equiv.fn2 by metis
         next
         case 3
           have "x \<noteq> z" using `x \<noteq> y` `y = z` by metis
-          have "[x \<leftrightarrow> y] \<cdot> B =a [x \<leftrightarrow> y] \<cdot> C" using `B =a C` ptrm_alpha_equiv_prm by metis
-          have "A =a [x \<leftrightarrow> z] \<cdot> C"
-            using `A =a [x \<leftrightarrow> y] \<cdot> B` `[x \<leftrightarrow> y] \<cdot> B =a [x \<leftrightarrow> y] \<cdot> C` `y = z` IH *
+          have "[x \<leftrightarrow> y] \<bullet> B =a [x \<leftrightarrow> y] \<bullet> C" using `B =a C` ptrm_alpha_equiv_prm by metis
+          have "A =a [x \<leftrightarrow> z] \<bullet> C"
+            using `A =a [x \<leftrightarrow> y] \<bullet> B` `[x \<leftrightarrow> y] \<bullet> B =a [x \<leftrightarrow> y] \<bullet> C` `y = z` IH *
             by metis
           have "x \<notin> ptrm_fvs C" using `B =a C` `x \<notin> ptrm_fvs B` ptrm_alpha_equiv_fvs by metis
-          thus ?thesis using `x \<noteq> z` `A =a [x \<leftrightarrow> z] \<cdot> C` `x \<notin> ptrm_fvs C` X Z
+          thus ?thesis using `x \<noteq> z` `A =a [x \<leftrightarrow> z] \<bullet> C` `x \<notin> ptrm_fvs C` X Z
             using ptrm_alpha_equiv.fn2 by metis
         next
         case 4
-          have "[x \<leftrightarrow> y] \<cdot> B =a [x \<leftrightarrow> y] \<cdot> [y \<leftrightarrow> z] \<cdot> C"
-            using `B =a [y \<leftrightarrow> z] \<cdot> C` ptrm_alpha_equiv_prm by metis
-          hence "A =a [x \<leftrightarrow> y] \<cdot> [y \<leftrightarrow> z] \<cdot> C"
-            using `A =a [x \<leftrightarrow> y] \<cdot> B` IH * by metis
-          hence "A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<cdot> C" using ptrm_prm_apply_compose by metis
-          hence "A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> x]) \<cdot> C" using `x = z` by metis
-          hence "A =a ([x \<leftrightarrow> y] \<diamondop> [x \<leftrightarrow> y]) \<cdot> C" using prm_unit_commutes by metis
-          hence "A =a \<epsilon> \<cdot> C" using `x = z` prm_unit_involution by metis
+          have "[x \<leftrightarrow> y] \<bullet> B =a [x \<leftrightarrow> y] \<bullet> [y \<leftrightarrow> z] \<bullet> C"
+            using `B =a [y \<leftrightarrow> z] \<bullet> C` ptrm_alpha_equiv_prm by metis
+          hence "A =a [x \<leftrightarrow> y] \<bullet> [y \<leftrightarrow> z] \<bullet> C"
+            using `A =a [x \<leftrightarrow> y] \<bullet> B` IH * by metis
+          hence "A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<bullet> C" using ptrm_prm_apply_compose by metis
+          hence "A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> x]) \<bullet> C" using `x = z` by metis
+          hence "A =a ([x \<leftrightarrow> y] \<diamondop> [x \<leftrightarrow> y]) \<bullet> C" using prm_unit_commutes by metis
+          hence "A =a \<epsilon> \<bullet> C" using `x = z` prm_unit_involution by metis
           hence "A =a C" using ptrm_prm_apply_id by metis
 
           thus ?thesis using `x = z` `A =a C` X Z
@@ -284,9 +352,9 @@ using assms proof(induction "ptrm_size X" arbitrary: X Y Z rule: less_induct)
         next
         case 5
           have "x \<notin> ptrm_fvs C" proof -
-            have "ptrm_fvs B = ptrm_fvs ([y \<leftrightarrow> z] \<cdot> C)"
-              using ptrm_alpha_equiv_fvs `B =a [y \<leftrightarrow> z] \<cdot> C` by metis
-            hence "x \<notin> ptrm_fvs ([y \<leftrightarrow> z] \<cdot> C)" using `x \<notin> ptrm_fvs B` by auto
+            have "ptrm_fvs B = ptrm_fvs ([y \<leftrightarrow> z] \<bullet> C)"
+              using ptrm_alpha_equiv_fvs `B =a [y \<leftrightarrow> z] \<bullet> C` by metis
+            hence "x \<notin> ptrm_fvs ([y \<leftrightarrow> z] \<bullet> C)" using `x \<notin> ptrm_fvs B` by auto
             hence "x \<notin> [y \<leftrightarrow> z] {$} ptrm_fvs C" using ptrm_prm_fvs by metis
             consider "z \<in> ptrm_fvs C" | "z \<notin> ptrm_fvs C" by auto
             thus ?thesis proof(cases)
@@ -305,12 +373,12 @@ using assms proof(induction "ptrm_size X" arbitrary: X Y Z rule: less_induct)
             qed
           qed
 
-          have "A =a [x \<leftrightarrow> z] \<cdot> C" proof -
-            have "A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<cdot> C"
-              using IH * `A =a [x \<leftrightarrow> y] \<cdot> B` `B =a [y \<leftrightarrow> z] \<cdot> C`
+          have "A =a [x \<leftrightarrow> z] \<bullet> C" proof -
+            have "A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<bullet> C"
+              using IH * `A =a [x \<leftrightarrow> y] \<bullet> B` `B =a [y \<leftrightarrow> z] \<bullet> C`
               and ptrm_alpha_equiv_prm ptrm_prm_apply_compose by metis
 
-            have "([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<cdot> C =a [x \<leftrightarrow> z] \<cdot> C" proof -
+            have "([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<bullet> C =a [x \<leftrightarrow> z] \<bullet> C" proof -
               have "prm_disagreement ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) [x \<leftrightarrow> z] = {x, y}"
                 using `x \<noteq> y` `y \<noteq> z` `x \<noteq> z` prm_disagreement_composition by metis
 
@@ -321,11 +389,11 @@ using assms proof(induction "ptrm_size X" arbitrary: X Y Z rule: less_induct)
             qed
 
             thus ?thesis using IH *
-              using `A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<cdot> C` `([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<cdot> C =a [x \<leftrightarrow> z] \<cdot> C`
+              using `A =a ([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<bullet> C` `([x \<leftrightarrow> y] \<diamondop> [y \<leftrightarrow> z]) \<bullet> C =a [x \<leftrightarrow> z] \<bullet> C`
               by metis
           qed
 
-          show ?thesis using `x \<noteq> z` `A =a [x \<leftrightarrow> z] \<cdot> C` `x \<notin> ptrm_fvs C` X Z
+          show ?thesis using `x \<noteq> z` `A =a [x \<leftrightarrow> z] \<bullet> C` `x \<notin> ptrm_fvs C` X Z
             using ptrm_alpha_equiv.fn2 by metis
         next
       qed
@@ -336,5 +404,197 @@ qed
 corollary ptrm_alpha_equiv_transp:
   shows "transp ptrm_alpha_equiv"
 unfolding transp_def using ptrm_alpha_equiv_transitive by auto
+
+type_synonym 'a typing_ctx = "'a \<rightharpoonup> type"
+
+fun ptrm_infer_type :: "'a typing_ctx \<Rightarrow> 'a ptrm \<Rightarrow> type option" where
+  "ptrm_infer_type \<Gamma> (PVar x) = \<Gamma> x"
+| "ptrm_infer_type \<Gamma> (PApp A B) = (case (ptrm_infer_type \<Gamma> A, ptrm_infer_type \<Gamma> B) of
+     (Some (TArr \<tau> \<sigma>), Some \<tau>') \<Rightarrow> (if \<tau> = \<tau>' then Some \<sigma> else None)
+   | _ \<Rightarrow> None
+   )"
+| "ptrm_infer_type \<Gamma> (PFn x \<tau> A) = (case ptrm_infer_type (\<Gamma>(x \<mapsto> \<tau>)) A of
+     Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>)
+   | None \<Rightarrow> None
+   )"
+
+lemma ptrm_infer_type_weaken:
+  assumes "y \<notin> ptrm_fvs X"
+  shows "ptrm_infer_type \<Gamma> X = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)) X"
+using assms proof(induction X arbitrary: \<Gamma>, simp, simp)
+  case (PFn x T A)
+    consider "y = x" | "y \<noteq> x \<and> y \<notin> ptrm_fvs A" using `y \<notin> ptrm_fvs (PFn x T A)` by auto
+    thus ?case proof(cases)
+      case 1
+        have "ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)) (PFn x T A) =
+          (case ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)(x \<mapsto> T)) A of
+            Some \<sigma> \<Rightarrow> Some (TArr T \<sigma>)
+          | None \<Rightarrow> None
+          )" by simp
+        moreover have "... =
+          (case ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A of
+            Some \<sigma> \<Rightarrow> Some (TArr T \<sigma>)
+          | None \<Rightarrow> None
+          )" using `y = x` by simp
+        moreover have "... = ptrm_infer_type \<Gamma> (PFn x T A)" by simp
+        ultimately show ?thesis by metis
+      next
+      case 2
+        hence "y \<noteq> x" and "y \<notin> ptrm_fvs A" by auto
+        hence "\<And>\<Gamma>. ptrm_infer_type \<Gamma> A = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)) A" using PFn.IH by metis
+        hence "\<And>\<Gamma>. ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(x \<mapsto> T)(y \<mapsto> \<tau>)) A"
+          by auto
+        hence "\<And>\<Gamma>. ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)(x \<mapsto> T)) A"
+          using `y \<noteq> x` by simp
+        thus ?thesis using ptrm_infer_type.simps(3) by metis
+      next
+    qed
+  next
+qed
+
+lemma ptrm_infer_type_swp_types:
+  assumes "a \<noteq> b"
+  shows "ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) X = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> X)"
+using assms proof(induction X arbitrary: T S \<Gamma>)
+  case (PVar x)
+    consider "x = a" | "x = b" | "x \<noteq> a \<and> x \<noteq> b" by auto
+    thus ?case proof(cases)
+      assume "x = a"
+      thus ?thesis using `a \<noteq> b` by (simp add: prm_unit_action)
+      next
+
+      assume "x = b"
+      thus ?thesis using `a \<noteq> b`
+        using prm_unit_action prm_unit_commutes fun_upd_same fun_upd_twist
+        by (metis ptrm_apply_prm.simps(1) ptrm_infer_type.simps(1))
+      next
+
+      assume "x \<noteq> a \<and> x \<noteq> b"
+      thus ?thesis by (simp add: prm_unit_inaction)
+      next
+    qed
+  next
+  case (PApp A B)
+    thus ?case by simp
+  next
+  case (PFn x \<tau> A)
+    hence *:
+      "\<And>T S \<Gamma>. ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) A = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> A)"
+      by metis
+
+    consider "x = a" | "x = b" | "x \<noteq> a \<and> x \<noteq> b" by auto
+    thus ?case proof(cases)
+      assume "x = a"
+      thus ?thesis
+        using * fun_upd_twist fun_upd_upd prm_unit_action
+        using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+        by smt
+      next
+
+      assume "x = b"
+      thus ?thesis
+        using * fun_upd_twist fun_upd_upd prm_unit_action prm_unit_commutes
+        using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+        by smt
+      next
+
+      assume "x \<noteq> a \<and> x \<noteq> b"
+      thus ?thesis
+        using * fun_upd_twist prm_unit_inaction
+        using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+        by smt
+      next
+    qed
+  next
+qed
+
+thm fun_upd_twist
+lemma ptrm_infer_type_swp:
+  assumes "a \<noteq> b" "b \<notin> ptrm_fvs X"
+  shows "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) X = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> X)"
+using assms proof(induction X arbitrary: \<tau> \<Gamma>)
+  case (PVar x)
+    hence "x \<noteq> b" by simp
+    consider "x = a" | "x \<noteq> a" by auto
+    thus ?case proof(cases)
+      assume "x = a"
+      hence "[a \<leftrightarrow> b] \<bullet> (PVar x) = PVar b"
+      and   "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PVar x) = Some \<tau>" using prm_unit_action by auto
+      thus ?thesis by auto
+      next
+
+      assume "x \<noteq> a"
+      hence *: "[a \<leftrightarrow> b] \<bullet> PVar x = PVar x" using `x \<noteq> b` prm_unit_inaction by simp
+      consider "\<exists>\<sigma>. \<Gamma> x = Some \<sigma>" | "\<Gamma> x = None" by auto
+      thus ?thesis proof(cases)
+        assume "\<exists>\<sigma>. \<Gamma> x = Some \<sigma>"
+        from this obtain \<sigma> where "\<Gamma> x = Some \<sigma>" by auto
+        thus ?thesis using * `x \<noteq> a` `x \<noteq> b` by auto
+        next
+
+        assume "\<Gamma> x = None"
+        thus ?thesis using * `x \<noteq> a` `x \<noteq> b` by auto
+      qed
+    qed
+  next
+  case (PApp A B)
+    have "b \<notin> ptrm_fvs A" and "b \<notin> ptrm_fvs B" using PApp.prems by auto
+    hence "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) A = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A)"
+    and   "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) B = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> B)"
+      using PApp.IH assms by metis+
+    
+    thus ?case by (metis ptrm_apply_prm.simps(2) ptrm_infer_type.simps(2))
+  next
+  case (PFn x \<sigma> A)
+    consider "b \<noteq> x \<and> b \<notin> ptrm_fvs A" | "b = x" using PFn.prems by auto
+    thus ?case proof(cases)
+      assume "b \<noteq> x \<and> b \<notin> ptrm_fvs A"
+      hence "b \<noteq> x" "b \<notin> ptrm_fvs A" by auto
+      hence *: "\<And>\<tau> \<Gamma>. ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) A = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A)"
+        using PFn.IH assms by metis
+      consider "a = x" | "a \<noteq> x" by auto
+      thus ?thesis proof(cases)
+        assume "a = x"
+        hence "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PFn x \<sigma> A) = ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PFn a \<sigma> A)"
+        and "
+          ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> PFn x \<sigma> A) =
+          ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) (PFn b \<sigma> ([a \<leftrightarrow> b] \<bullet> A))"
+        by (auto simp add: prm_unit_action)
+        thus ?thesis using * ptrm_infer_type.simps(3) fun_upd_upd by metis
+        next
+
+        assume "a \<noteq> x"
+        thus ?thesis
+          using `b \<noteq> x` prm_unit_inaction * fun_upd_twist
+          using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+          by smt
+        next
+      qed
+      next
+
+      assume "b = x"
+      hence "a \<noteq> x" using assms by auto
+      have "
+        ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)(b \<mapsto> \<sigma>)) A =
+        ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)(a \<mapsto> \<sigma>)) ([a \<leftrightarrow> b] \<bullet> A)
+      " using ptrm_infer_type_swp_types using `a \<noteq> b` fun_upd_twist by metis
+      thus ?thesis
+        using `b = x` prm_unit_action prm_unit_commutes
+        using ptrm_infer_type.simps(3) ptrm_apply_prm.simps(3) by metis
+      next
+    qed
+  next
+qed
+
+lemma ptrm_infer_type_alpha_equiv:
+  assumes "X =a Y"
+  shows "ptrm_infer_type \<Gamma> X = ptrm_infer_type \<Gamma> Y"
+using assms proof(induction arbitrary: \<Gamma>, simp, simp, simp)
+  case (fn2 a b A B T \<Gamma>)
+    hence "ptrm_infer_type (\<Gamma>(a \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(b \<mapsto> T)) B"
+      using ptrm_infer_type_swp prm_unit_commutes by metis
+    thus ?case by simp
+  next
+qed
 
 end
