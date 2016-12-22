@@ -182,6 +182,14 @@ unfolding preprm_unit_def preprm_compose_def proof
   qed
 qed
 
+lemma preprm_compose_push:
+  shows "
+    preprm_compose \<pi> (preprm_unit a b) =p
+    preprm_compose (preprm_unit (preprm_apply \<pi> a) (preprm_apply \<pi> b)) \<pi>
+  "
+unfolding preprm_ext_def preprm_unit_def
+by (simp add: inj_eq preprm_apply_composition preprm_apply_injective)
+
 quotient_type 'a prm = "'a preprm" / preprm_ext
 proof(rule equivpI)
   show "reflp preprm_ext" using preprm_ext_reflp.
@@ -332,11 +340,19 @@ lemma prm_set_distributes_difference:
   shows "\<pi> {$} (S - T) = (\<pi> {$} S) - (\<pi> {$} T)"
 unfolding prm_set_def using prm_apply_injective image_set_diff by metis
 
-definition prm_disagreement :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a set" where
+definition prm_disagreement :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a set" ("ds") where
   "prm_disagreement \<pi> \<sigma> == {x. \<pi> $ x \<noteq> \<sigma> $ x}"
+
+lemma prm_disagreement_ext:
+  shows "x \<in> ds \<pi> \<sigma> \<equiv> \<pi> $ x \<noteq> \<sigma> $ x"
+using assms unfolding prm_disagreement_def by simp
 
 lemma prm_disagreement_composition:
   assumes "a \<noteq> b" "b \<noteq> c" "a \<noteq> c"
-  shows "prm_disagreement ([a \<leftrightarrow> b] \<diamondop> [b \<leftrightarrow> c]) [a \<leftrightarrow> c] = {a, b}"
+  shows "ds ([a \<leftrightarrow> b] \<diamondop> [b \<leftrightarrow> c]) [a \<leftrightarrow> c] = {a, b}"
 using assms unfolding prm_disagreement_def by(transfer, metis preprm_disagreement_composition)
+
+lemma prm_compose_push:
+  shows "\<pi> \<diamondop> [a \<leftrightarrow> b] = [\<pi> $ a \<leftrightarrow> \<pi> $ b] \<diamondop> \<pi>"
+by(transfer, metis preprm_compose_push)
 end

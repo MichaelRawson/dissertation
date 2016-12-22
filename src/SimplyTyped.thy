@@ -20,9 +20,9 @@ lemma var_not_app:
   shows "Var x \<noteq> App A B"
 proof(transfer)
   fix x :: 'a and A B
-  show "\<not>PVar x =a PApp A B"
+  show "\<not>PVar x \<approx> PApp A B"
   proof(rule classical)
-    assume "\<not>\<not>PVar x =a PApp A B"
+    assume "\<not>\<not>PVar x \<approx> PApp A B"
     hence False using varE ptrm.distinct(1) by fastforce
     thus ?thesis by blast
   qed
@@ -32,9 +32,9 @@ lemma var_not_fn:
   shows "Var x \<noteq> Fn y T A"
 proof(transfer)
   fix x y :: 'a and T A
-  show "\<not>PVar x =a PFn y T A"
+  show "\<not>PVar x \<approx> PFn y T A"
   proof(rule classical)
-    assume "\<not>\<not>PVar x =a PFn y T A" 
+    assume "\<not>\<not>PVar x \<approx> PFn y T A" 
     hence False using varE ptrm.distinct(2) by fastforce
     thus ?thesis by blast
   qed
@@ -44,9 +44,9 @@ lemma app_not_fn:
   shows "App A B \<noteq> Fn y T X"
 proof(transfer)
   fix y :: 'a and A B T X
-  show "\<not>PApp A B =a PFn y T X"
+  show "\<not>PApp A B \<approx> PFn y T X"
   proof(rule classical)
-    assume "\<not>\<not>PApp A B =a PFn y T X"
+    assume "\<not>\<not>PApp A B \<approx> PFn y T X"
     hence False using appE ptrm.distinct(5) by auto
     thus ?thesis by blast
   qed
@@ -130,8 +130,8 @@ by(induction M rule: trm_induct, auto simp add: trm_prm_simp prm_apply_id)
 
 inductive typing :: "'a typing_ctx \<Rightarrow> 'a trm \<Rightarrow> type \<Rightarrow> bool" ("_ \<turnstile> _ : _") where
   tvar: "\<Gamma> x = Some \<tau> \<Longrightarrow> \<Gamma> \<turnstile> Var x : \<tau>"
-| tapp: "\<lbrakk>\<Gamma> \<turnstile> f : TArr \<tau> \<sigma>; \<Gamma> \<turnstile> x : \<tau>\<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> App f x : \<sigma>"
-| tfn:  "\<Gamma>(x \<mapsto> \<tau>) \<turnstile> A : \<sigma> \<Longrightarrow> \<Gamma> \<turnstile> Fn x \<tau> A : TArr \<tau> \<sigma>"
+| tapp: "\<lbrakk>\<Gamma> \<turnstile> f : (TArr \<tau> \<sigma>); \<Gamma> \<turnstile> x : \<tau>\<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> App f x : \<sigma>"
+| tfn:  "\<Gamma>(x \<mapsto> \<tau>) \<turnstile> A : \<sigma> \<Longrightarrow> \<Gamma> \<turnstile> Fn x \<tau> A : (TArr \<tau> \<sigma>)"
 
 lemma typing_prm:
   assumes "\<Gamma> \<turnstile> M : \<tau>" "\<And>x. x \<in> fvs M \<Longrightarrow> \<Gamma> x = \<Delta> (\<pi> $ x)"
@@ -178,7 +178,7 @@ proof -
     case (tapp \<Delta> A \<tau>' \<tau> B)
       have "b \<notin> fvs A" and "b \<notin> fvs B"
         using `b \<notin> fvs (App A B)` fvs_simp(2) UnCI by metis+
-      hence "\<Gamma>(b \<mapsto> \<sigma>) \<turnstile> [a \<leftrightarrow> b] \<cdot> A : TArr \<tau>' \<tau>" and "\<Gamma>(b \<mapsto> \<sigma>) \<turnstile> [a \<leftrightarrow> b] \<cdot> B : \<tau>'"
+      hence "\<Gamma>(b \<mapsto> \<sigma>) \<turnstile> [a \<leftrightarrow> b] \<cdot> A : (TArr \<tau>' \<tau>)" and "\<Gamma>(b \<mapsto> \<sigma>) \<turnstile> [a \<leftrightarrow> b] \<cdot> B : \<tau>'"
         using tapp.IH tapp.prems by metis+
       thus ?case using trm_prm_simp typing.tapp by smt
     next
@@ -237,12 +237,12 @@ using assms by(cases, metis trm_simp(1), auto simp add: var_not_app var_not_fn)
 
 lemma typing_appE:
   assumes "\<Gamma> \<turnstile> App A B : \<sigma>"
-  shows "\<exists>\<tau>. \<Gamma> \<turnstile> A : TArr \<tau> \<sigma> \<and> \<Gamma> \<turnstile> B : \<tau>"
+  shows "\<exists>\<tau>. (\<Gamma> \<turnstile> A : (TArr \<tau> \<sigma>)) \<and> (\<Gamma> \<turnstile> B : \<tau>)"
 using assms by(cases, metis var_not_app, metis trm_simp(2) trm_simp(3), metis app_not_fn)
 
 lemma typing_fnE:
   assumes "\<Gamma> \<turnstile> Fn x T A : \<theta>"
-  shows "\<exists>\<sigma>. \<theta> = TArr T \<sigma> \<and> \<Gamma>(x \<mapsto> T) \<turnstile> A : \<sigma>"
+  shows "\<exists>\<sigma>. \<theta> = (TArr T \<sigma>) \<and> (\<Gamma>(x \<mapsto> T) \<turnstile> A : \<sigma>)"
 using assms proof(cases, metis var_not_fn, metis app_not_fn)
   case (tfn y S B \<sigma>)
     from this consider
@@ -259,31 +259,110 @@ using assms proof(cases, metis var_not_fn, metis app_not_fn)
   next
 qed
 
-lift_definition infer_type :: "'a typing_ctx \<Rightarrow> 'a trm \<Rightarrow> type option" is ptrm_infer_type
+theorem typing_weaken:
+  assumes "y \<notin> fvs M"
+  shows "(\<Gamma> \<turnstile> M : \<tau>) = (\<Gamma>(y \<mapsto> \<sigma>) \<turnstile> M : \<tau>)"
+using assms proof(induction M arbitrary: \<Gamma> \<tau> rule: trm_induct)
+  case (1 x \<Gamma> \<tau>)
+    thus ?case using fvs_simp(1) typing.tvar typing_varE
+      using map_upd_Some_unfold singletonI by metis
+  next
+  case (2 A B \<Gamma> \<tau>)
+    thus ?case using fvs_simp(2) typing.tapp
+      using UnCI typing_appE by metis
+  next
+  case (3 x T A \<Gamma> \<tau>)
+    from `y \<notin> fvs (Fn x T A)` consider "y \<noteq> x \<and> y \<notin> fvs A" | "y = x"
+      using fvs_simp(3) DiffI singletonD by fastforce
+    thus ?case proof(cases)
+      case 1
+        thus ?thesis using "3.IH" typing.tfn fun_upd_twist typing_fnE by metis
+      next
+      case 2
+        hence "\<Gamma>(x \<mapsto> T) = \<Gamma>(y \<mapsto> \<sigma>)(x \<mapsto> T)" by simp
+        thus ?thesis using typing.tfn typing_fnE by metis
+      next
+    qed
+  next
+qed
+
+lift_definition infer :: "'a typing_ctx \<Rightarrow> 'a trm \<Rightarrow> type option" is ptrm_infer_type
 proof(transfer)
   fix \<Gamma> :: "'a typing_ctx" and X Y :: "'a ptrm"
-  assume "X =a Y"
+  assume "X \<approx> Y"
   thus "ptrm_infer_type \<Gamma> X = ptrm_infer_type \<Gamma> Y" using ptrm_infer_type_alpha_equiv by auto
 qed
 
-theorem infer_type_valid:
-  assumes "\<Gamma> \<turnstile> M : \<tau>"
-  shows "infer_type \<Gamma> M = Some \<tau>"
-using assms proof(induction arbitrary: \<Gamma> \<tau> rule: trm_induct)
-  case (1 x)
-    hence "\<Gamma> x = Some \<tau>" using typing_varE by metis
-    thus ?case by(transfer, simp)
-  next
-  case (2 A B)
-    from this obtain \<sigma> where "\<Gamma> \<turnstile> A : TArr \<sigma> \<tau>" "\<Gamma> \<turnstile> B : \<sigma>" using typing_appE by metis
-    hence "infer_type \<Gamma> A = Some (TArr \<sigma> \<tau>)" and "infer_type \<Gamma> B = Some \<sigma>" using "2.IH" by auto
-    thus ?case by(transfer, simp)
-  next
-  case (3 x T A \<Gamma> S)
-    from this obtain \<sigma> where S: "S = TArr T \<sigma>" and "\<Gamma>(x \<mapsto> T) \<turnstile> A : \<sigma>" using typing_fnE by metis
-    hence "infer_type (\<Gamma>(x \<mapsto> T)) A = Some \<sigma>" using "3.IH" by auto
-    thus ?case using S by(transfer, simp)
-  next
+lemma infer_simp:
+  shows
+    "infer \<Gamma> (Var x) = \<Gamma> x"
+    "infer \<Gamma> (App A B) = (case (infer \<Gamma> A, infer \<Gamma> B) of
+       (Some (TArr \<tau> \<sigma>), Some \<tau>') \<Rightarrow> (if \<tau> = \<tau>' then Some \<sigma> else None)
+     | _ \<Rightarrow> None
+     )"
+    "infer \<Gamma> (Fn x \<tau> A) = (case infer (\<Gamma>(x \<mapsto> \<tau>)) A of
+       Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>)
+     | None \<Rightarrow> None
+    )"
+by((transfer, simp)+)
+
+lemma infer_varE:
+  assumes "infer \<Gamma> (Var x) = Some \<tau>"
+  shows "\<Gamma> x = Some \<tau>"
+using assms by(simp add: infer_simp)
+
+lemma infer_appE:
+  assumes "infer \<Gamma> (App A B) = Some \<tau>"
+  shows "\<exists>\<sigma>. infer \<Gamma> A = Some (TArr \<sigma> \<tau>) \<and> infer \<Gamma> B = Some \<sigma>"
+sorry
+
+lemma infer_fnE:
+  assumes "infer \<Gamma> (Fn x T A) = Some \<tau>"
+  shows "\<exists>\<sigma>. \<tau> = TArr T \<sigma> \<and> infer (\<Gamma>(x \<mapsto> T)) A = Some \<sigma>"
+sorry
+
+theorem infer_valid:
+  shows "(\<Gamma> \<turnstile> M : \<tau>) = (infer \<Gamma> M = Some \<tau>)"
+proof -
+  have 1: "\<Gamma> \<turnstile> M : \<tau> \<Longrightarrow> infer \<Gamma> M = Some \<tau>"
+  proof(induction arbitrary: \<Gamma> \<tau> rule: trm_induct)
+    case (1 x)
+      hence "\<Gamma> x = Some \<tau>" using typing_varE by metis
+      thus ?case by(transfer, simp)
+    next
+    case (2 A B)
+      from this obtain \<sigma> where "\<Gamma> \<turnstile> A : (TArr \<sigma> \<tau>)" "\<Gamma> \<turnstile> B : \<sigma>" using typing_appE by metis
+      hence "infer \<Gamma> A = Some (TArr \<sigma> \<tau>)" and "infer \<Gamma> B = Some \<sigma>" using "2.IH" by auto
+      thus ?case by(transfer, simp)
+    next
+    case (3 x T A \<Gamma> S)
+      from this obtain \<sigma> where S: "S = TArr T \<sigma>" and "\<Gamma>(x \<mapsto> T) \<turnstile> A : \<sigma>" using typing_fnE by metis
+      hence "infer (\<Gamma>(x \<mapsto> T)) A = Some \<sigma>" using "3.IH" by auto
+      thus ?case using S by(transfer, simp)
+    next
+  qed
+
+  have 2: "infer \<Gamma> M = Some \<tau> \<Longrightarrow> \<Gamma> \<turnstile> M : \<tau>"
+  proof(induction M arbitrary: \<Gamma> \<tau> rule: trm_induct)
+    case (1 x)
+      hence "\<Gamma> x = Some \<tau>" using infer_varE by metis
+      thus ?case using typing.tvar by metis
+    next
+    case (2 A B)
+      from `infer \<Gamma> (App A B) = Some \<tau>` obtain \<sigma>
+        where "infer \<Gamma> A = Some (TArr \<sigma> \<tau>)" and "infer \<Gamma> B = Some \<sigma>"
+        using infer_appE by metis
+      thus ?case using "2.IH" typing.tapp by metis
+    next
+    case (3 x T A \<Gamma> \<tau>)
+      from `infer \<Gamma> (Fn x T A) = Some \<tau>` obtain \<sigma>
+        where "\<tau> = TArr T \<sigma>" and "infer (\<Gamma>(x \<mapsto> T)) A = Some \<sigma>"
+        using infer_fnE by metis
+      thus ?case using "3.IH" typing.tfn by metis
+    next
+  qed
+
+  show ?thesis using 1 and 2 by blast
 qed
 
 end
