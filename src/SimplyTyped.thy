@@ -15,6 +15,11 @@ lift_definition Fn  :: "'a \<Rightarrow> type \<Rightarrow> 'a trm \<Rightarrow>
 lift_definition fvs :: "'a trm \<Rightarrow> 'a set" is ptrm_fvs using ptrm_alpha_equiv_fvs.
 lift_definition prm :: "'a prm \<Rightarrow> 'a trm \<Rightarrow> 'a trm" (infixr "\<cdot>" 150) is ptrm_apply_prm
   using ptrm_alpha_equiv_prm.
+lift_definition depth :: "'a trm \<Rightarrow> nat" is size using ptrm_size_alpha_equiv.
+
+lemma depth_prm:
+  shows "depth A = depth (\<pi> \<cdot> A)"
+sorry
 
 lemma var_not_app:
   shows "Var x \<noteq> App A B"
@@ -115,14 +120,76 @@ proof -
   thus ?thesis using trm.abs_induct by auto
 qed
 
-lemma (in fresh) trm_strong_induct:
+context fresh begin
+
+lemma trm_strong_induct:
   fixes P :: "'a set \<Rightarrow> 'a trm \<Rightarrow> bool"
   assumes
-    "\<And>c x. finite c \<Longrightarrow> P c (Var x)"
-    "\<And>c A B. \<lbrakk>finite c; \<And>c'. finite c' \<Longrightarrow> P c' A; \<And>c'. finite c' \<Longrightarrow> P c' B\<rbrakk> \<Longrightarrow> P c (App A B)"
-    "\<And>c x T A. \<lbrakk>finite c; x \<notin> c; \<And>c'. finite c' \<Longrightarrow> P c' A\<rbrakk> \<Longrightarrow> P c (Fn x T A)"
-  shows "\<And>c. finite c \<Longrightarrow> P c M"
-sorry
+    "\<And>S x. finite S \<Longrightarrow> P S (Var x)"
+    "\<And>S A B. \<lbrakk>finite S; \<And>S. finite S \<Longrightarrow> P S A; \<And>S. finite S \<Longrightarrow> P S B\<rbrakk> \<Longrightarrow> P S (App A B)"
+    "\<And>S x T A. \<lbrakk>finite S; x \<notin> S; \<And>S. finite S \<Longrightarrow> P S A\<rbrakk> \<Longrightarrow> P S (Fn x T A)"
+    "finite S"
+  shows "P S M"
+using `finite S` proof(induction "depth M" arbitrary: M S rule: less_induct)
+  fix M :: "'a trm" and S :: "'a set"
+  assume "\<And>K S. \<lbrakk>depth K < depth M; finite S\<rbrakk> \<Longrightarrow> P S K" and "finite S"
+  thus "P S M"
+  proof(induction M rule: trm_induct)
+    case (1 x)
+      thus ?case using assms(1) by metis
+    next
+    case (2 A B)
+      have "depth A < depth (App A B)" and "depth B < depth (App A B)" 
+        by ((transfer, auto)+)
+
+      have "\<And>S. finite S \<Longrightarrow> P S A" and "\<And>S. finite S \<Longrightarrow> P S B"
+        using "2.prems" `depth A < depth (App A B)` `depth B < depth (App A B)`
+        by auto
+
+      thus ?case using assms(2) `finite S` by auto
+    next
+    case (3 x T A)
+      hence "finite ({x} \<union> fvs A \<union> S)" 
+        using fvs_finite finite.emptyI finite.insertI finite_UnI by blast
+      obtain y where "y = fresh_in ({x} \<union> fvs A \<union> S)" by auto
+      hence "y \<notin> ({x} \<union> fvs A \<union> S)" using fresh_axioms unfolding class.fresh_def
+        using `finite ({x} \<union> fvs A \<union> S)` by metis
+      hence "y \<noteq> x" "y \<notin> fvs A" "y \<notin> S" by auto
+
+      have "\<And>S. finite S \<Longrightarrow> P S ([x \<leftrightarrow> y] \<cdot> A)"
+      using "3.prems"(1) proof -
+        fix S :: "'a set"
+        assume "finite S"
+        assume *: "\<And>K S. \<lbrakk>depth K < depth (Fn x T A); finite S\<rbrakk> \<Longrightarrow> P S K"
+
+        have "depth A = depth ([x \<leftrightarrow> y] \<cdot> A)" using depth_prm.
+        moreover have "depth A < depth (Fn x T A)" by (transfer, auto)
+        ultimately have "depth ([x \<leftrightarrow> y] \<cdot> A) < depth (Fn x T A)" by metis
+
+        thus "P S ([x \<leftrightarrow> y] \<cdot> A)" using * `finite S` by metis
+      qed
+
+      have "P S (Fn y T ([x \<leftrightarrow> y] \<cdot> A))"
+        using assms(3) `finite S` `y \<notin> S` `\<And>S. finite S \<Longrightarrow> P S ([x \<leftrightarrow> y] \<cdot> A)` 
+        by metis
+     
+      have "Fn y T ([x \<leftrightarrow> y] \<cdot> A) = Fn x T A"
+      using `y \<noteq> x` `y \<notin> fvs A` proof(transfer')
+        fix x y :: 'a and X T
+        assume "y \<noteq> x" "y \<notin> ptrm_fvs X"
+  
+        have "[x \<leftrightarrow> y] \<bullet> X \<approx> [y \<leftrightarrow> x] \<bullet> X"
+          using ptrm_alpha_equiv_reflexive prm_unit_commutes by metis
+        thus "PFn y T ([x \<leftrightarrow> y] \<bullet> X) \<approx> PFn x T X"
+          using `y \<noteq> x` `y \<notin> ptrm_fvs X` ptrm_alpha_equiv.fn2 by metis
+      qed
+
+      thus ?case
+        using `P S (Fn y T ([x \<leftrightarrow> y] \<cdot> A))` `Fn y T ([x \<leftrightarrow> y] \<cdot> A) = Fn x T A`
+        by auto
+    next
+  qed
+qed
 
 lemma trm_prm_id:
   shows "\<epsilon> \<cdot> M = M"
@@ -365,4 +432,5 @@ proof -
   show ?thesis using 1 and 2 by blast
 qed
 
+end
 end

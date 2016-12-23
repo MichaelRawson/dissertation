@@ -33,23 +33,6 @@ inductive_cases varE: "PVar x \<approx> Y"
 inductive_cases appE: "PApp A B \<approx> Y"
 inductive_cases fnE:  "PFn x T A \<approx> Y"
 
-fun ptrm_size :: "'a ptrm \<Rightarrow> nat" where
-  "ptrm_size (PVar _) = 1"
-| "ptrm_size (PApp A B) = ptrm_size A + ptrm_size B + 1"
-| "ptrm_size (PFn x T A) = ptrm_size A + 1"
-
-lemma ptrm_size_app1:
-  shows "ptrm_size A < ptrm_size (PApp A B)"
-by(induction A, simp_all)
-
-lemma ptrm_size_app2:
-  shows "ptrm_size B < ptrm_size (PApp A B)"
-by(induction B, simp_all)
-
-lemma ptrm_size_fn:
-  shows "ptrm_size A < ptrm_size (PFn x T A)"
-by(induction A, simp_all)
-
 lemma ptrm_prm_apply_id:
   shows "\<epsilon> \<bullet> X = X"
 by(induction X, simp_all add: prm_apply_id)
@@ -57,6 +40,20 @@ by(induction X, simp_all add: prm_apply_id)
 lemma ptrm_prm_apply_compose:
   shows "\<pi> \<bullet> \<sigma> \<bullet> X = (\<pi> \<diamondop> \<sigma>) \<bullet> X"
 by(induction X, simp_all add: prm_apply_composition)
+
+lemma ptrm_size_prm:
+  shows "size X = size (\<pi> \<bullet> X)"
+by(induction X, auto)
+
+lemma ptrm_size_alpha_equiv:
+  assumes "X \<approx> Y"
+  shows "size X = size Y"
+using assms proof(induction rule: ptrm_alpha_equiv.induct, simp, simp, simp)
+  case (fn2 a b A B T)
+    hence "size A = size B" using ptrm_size_prm by metis
+    thus ?case by auto
+  next
+qed
 
 lemma ptrm_fvs_finite:
   shows "finite (ptrm_fvs X)"
@@ -345,9 +342,9 @@ unfolding symp_def using ptrm_alpha_equiv_symmetric by auto
 lemma ptrm_alpha_equiv_transitive:
   assumes "X \<approx> Y" and "Y \<approx> Z"
   shows "X \<approx> Z"
-using assms proof(induction "ptrm_size X" arbitrary: X Y Z rule: less_induct)
+using assms proof(induction "size X" arbitrary: X Y Z rule: less_induct)
   fix X Y Z :: "'a ptrm"
-  assume IH: "\<And>K Y Z :: 'a ptrm. ptrm_size K < ptrm_size X \<Longrightarrow> K \<approx> Y \<Longrightarrow> Y \<approx> Z \<Longrightarrow> K \<approx> Z"
+  assume IH: "\<And>K Y Z :: 'a ptrm. size K < size X \<Longrightarrow> K \<approx> Y \<Longrightarrow> Y \<approx> Z \<Longrightarrow> K \<approx> Z"
   assume "X \<approx> Y" and "Y \<approx> Z"
   show "X \<approx> Z" proof(cases X)
     case (PVar x)
@@ -363,14 +360,13 @@ using assms proof(induction "ptrm_size X" arbitrary: X Y Z rule: less_induct)
       hence "PApp C D \<approx> Z" using `Y \<approx> Z` by simp
       from this obtain E F where "Z = PApp E F" and "C \<approx> E" and "D \<approx> F" using appE by metis
 
-      have "ptrm_size A < ptrm_size X" and "ptrm_size B < ptrm_size X"
-        using ptrm_size_app1 ptrm_size_app2 `X = PApp A B` by auto
+      have "size A < size X" and "size B < size X" using `X = PApp A B` by auto
       hence "A \<approx> E" and "B \<approx> F" using IH `A \<approx> C` `C \<approx> E` `B \<approx> D` `D \<approx> F` by auto
       thus ?thesis using `X = PApp A B` `Z = PApp E F` ptrm_alpha_equiv.app by metis
     next
     case (PFn x T A)
       from this have X: "X = PFn x T A".
-      hence *: "ptrm_size A < ptrm_size X" using ptrm_size_fn by auto
+      hence *: "size A < size X" by auto
 
       obtain y B where "Y = PFn y T B"
         and Y_cases: "(x = y \<and> A \<approx> B) \<or> (x \<noteq> y \<and> A \<approx> [x \<leftrightarrow> y] \<bullet> B \<and> x \<notin> ptrm_fvs B)"
