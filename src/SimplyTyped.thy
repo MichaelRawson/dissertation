@@ -19,7 +19,7 @@ lift_definition depth :: "'a trm \<Rightarrow> nat" is size using ptrm_size_alph
 
 lemma depth_prm:
   shows "depth A = depth (\<pi> \<cdot> A)"
-sorry
+by(transfer, metis ptrm_size_prm)
 
 lemma var_not_app:
   shows "Var x \<noteq> App A B"
@@ -70,6 +70,27 @@ lemma trm_simp:
   apply (transfer', smt ptrm.inject(3) fnE)[]
 done
 
+lemma fn_eq:
+  assumes "x \<noteq> y" "x \<notin> fvs B" "A = [x \<leftrightarrow> y] \<cdot> B"
+  shows "Fn x T A = Fn y T B"
+using assms by(transfer', metis ptrm_alpha_equiv.fn2)
+
+lemma trm_distinct:
+  shows
+    "Var x \<noteq> App A B"
+    "App A B \<noteq> Var x"
+    "Var x \<noteq> Fn y T Y"
+    "Fn y T Y \<noteq> Var x"
+    "App A B \<noteq> Fn y T Y"
+    "Fn y T Y \<noteq> App A B"
+  apply (metis var_not_app)
+  apply (metis var_not_app)
+  apply (metis var_not_fn)
+  apply (metis var_not_fn)
+  apply (metis app_not_fn)
+  apply (metis app_not_fn)
+done
+
 lemma trm_prm_simp:
   shows
     "\<pi> \<cdot> Var x = Var (\<pi> $ x)"
@@ -100,6 +121,11 @@ lemma var_prm_inaction:
   shows "[a \<leftrightarrow> b] \<cdot> Var x = Var x"
 using assms by(transfer', simp add: prm_unit_inaction ptrm_alpha_equiv.intros)
 
+lemma trm_prm_agreement_equiv:
+  assumes "\<And>a. a \<in> ds \<pi> \<sigma> \<Longrightarrow> a \<notin> fvs M"
+  shows "\<pi> \<cdot> M = \<sigma> \<cdot> M"
+using assms by(transfer, metis ptrm_prm_agreement_equiv)
+
 lemma trm_induct:
   fixes P :: "'a trm \<Rightarrow> bool"
   assumes
@@ -119,6 +145,16 @@ proof -
   qed
   thus ?thesis using trm.abs_induct by auto
 qed
+
+lemma trm_cases:
+  assumes
+    "\<And>x. M = Var x \<Longrightarrow> P M"
+    "\<And>A B. M = App A B \<Longrightarrow> P M"
+    "\<And>x T A. M = Fn x T A \<Longrightarrow> P M"
+  shows "P M"
+using assms by(induction rule: trm_induct, auto)
+
+
 
 context fresh begin
 
@@ -194,6 +230,10 @@ qed
 lemma trm_prm_id:
   shows "\<epsilon> \<cdot> M = M"
 by(induction M rule: trm_induct, auto simp add: trm_prm_simp prm_apply_id)
+
+lemma trm_prm_fvs:
+  shows "fvs (\<pi> \<cdot> M) = \<pi> {$} fvs M"
+by(transfer, metis ptrm_prm_fvs)
 
 inductive typing :: "'a typing_ctx \<Rightarrow> 'a trm \<Rightarrow> type \<Rightarrow> bool" ("_ \<turnstile> _ : _") where
   tvar: "\<Gamma> x = Some \<tau> \<Longrightarrow> \<Gamma> \<turnstile> Var x : \<tau>"
@@ -329,21 +369,35 @@ qed
 theorem typing_weaken:
   assumes "y \<notin> fvs M"
   shows "(\<Gamma> \<turnstile> M : \<tau>) = (\<Gamma>(y \<mapsto> \<sigma>) \<turnstile> M : \<tau>)"
-using assms proof(induction M arbitrary: \<Gamma> \<tau> rule: trm_induct)
+using assms proof(induction "fvs M" M arbitrary: \<Gamma> \<tau> rule: trm_strong_induct)
+  show "finite (fvs M)" using fvs_finite.
+
   case (1 x \<Gamma> \<tau>)
-    thus ?case using fvs_simp(1) typing.tvar typing_varE
-      using map_upd_Some_unfold singletonI by metis
+    have "fvs (Var x) = {x}" using fvs_simp(1).
+    hence "y \<notin> {x}" using `y \<notin> fvs (Var x)` by auto
+    hence "y \<noteq> x" by auto
+    hence "\<Gamma> x = (\<Gamma>(y \<mapsto> \<sigma>)) x" by simp
+    thus ?case using typing_varE typing.tvar by metis 
   next
   case (2 A B \<Gamma> \<tau>)
-    thus ?case using fvs_simp(2) typing.tapp
-      using UnCI typing_appE by metis
+    have "finite (fvs A)" and "finite (fvs B)" using fvs_finite by auto
+    have "fvs (App A B) = fvs A \<union> fvs B" using fvs_simp(2).
+    hence "y \<notin> fvs A \<union> fvs B" using `y \<notin> fvs (App A B)` by auto
+    hence "y \<notin> fvs A" and "y \<notin> fvs B" by auto
+    thus ?case
+      using "2.hyps" `finite (fvs A)` `finite (fvs B)` typing.tapp typing_appE typing.simps
+      by metis
   next
   case (3 x T A \<Gamma> \<tau>)
-    from `y \<notin> fvs (Fn x T A)` consider "y \<noteq> x \<and> y \<notin> fvs A" | "y = x"
-      using fvs_simp(3) DiffI singletonD by fastforce
+    have "finite (fvs A)" using fvs_finite by auto
+    have "fvs (Fn x T A) = fvs A - {x}" using fvs_simp(3).
+    hence "y \<notin> fvs A - {x}" using `y \<notin> fvs (Fn x T A)` by auto
+    from this consider "y \<notin> fvs A" | "y = x" by auto
     thus ?case proof(cases)
       case 1
-        thus ?thesis using "3.IH" typing.tfn fun_upd_twist typing_fnE by metis
+        thus ?thesis 
+          using "3.hyps"(3) `finite (fvs A)` fun_upd_twist fun_upd_upd tfn typing_fnE
+          by smt
       next
       case 2
         hence "\<Gamma>(x \<mapsto> T) = \<Gamma>(y \<mapsto> \<sigma>)(x \<mapsto> T)" by simp
@@ -376,17 +430,87 @@ by((transfer, simp)+)
 lemma infer_varE:
   assumes "infer \<Gamma> (Var x) = Some \<tau>"
   shows "\<Gamma> x = Some \<tau>"
-using assms by(simp add: infer_simp)
+using assms by(transfer, simp)
 
 lemma infer_appE:
   assumes "infer \<Gamma> (App A B) = Some \<tau>"
   shows "\<exists>\<sigma>. infer \<Gamma> A = Some (TArr \<sigma> \<tau>) \<and> infer \<Gamma> B = Some \<sigma>"
-sorry
+using assms proof(transfer)
+  fix \<Gamma> :: "'a typing_ctx" and A B \<tau>
+  assume H: "ptrm_infer_type \<Gamma> (PApp A B) = Some \<tau>"
+
+  have "ptrm_infer_type \<Gamma> A \<noteq> None"
+  proof(rule classical)
+    assume "\<not>ptrm_infer_type \<Gamma> A \<noteq> None"
+    hence "ptrm_infer_type \<Gamma> A = None" by auto
+    hence "ptrm_infer_type \<Gamma> (PApp A B) = None" by auto
+    hence False using H by auto
+    thus ?thesis by blast
+  qed
+  from this obtain T where *: "ptrm_infer_type \<Gamma> A = Some T" by auto
+
+  have "\<And>x. T \<noteq> TVar x"
+  proof(rule classical)
+    fix x
+    assume "\<not>T \<noteq> TVar x"
+    hence "T = TVar x" by auto
+    hence "ptrm_infer_type \<Gamma> A = Some (TVar x)" using * by metis
+    hence "ptrm_infer_type \<Gamma> (PApp A B) = None" by simp
+    hence False using H by auto
+    thus "T \<noteq> TVar x" by blast
+  qed
+  from this obtain \<sigma> \<tau>' where "T = TArr \<sigma> \<tau>'" by(cases T, blast, auto)
+  hence *: "ptrm_infer_type \<Gamma> A = Some (TArr \<sigma> \<tau>')" using * by metis
+
+  have "ptrm_infer_type \<Gamma> B \<noteq> None"
+  proof(rule classical)
+    assume "\<not>ptrm_infer_type \<Gamma> B \<noteq> None"
+    hence "ptrm_infer_type \<Gamma> B = None" by auto
+    hence "ptrm_infer_type \<Gamma> (PApp A B) = None" using * by auto
+    hence False using H by auto
+    thus "ptrm_infer_type \<Gamma> B \<noteq> None" by blast
+  qed
+  from this obtain \<sigma>' where **: "ptrm_infer_type \<Gamma> B = Some \<sigma>'" by auto
+
+  have "\<sigma> = \<sigma>'"
+  proof(rule classical)
+    assume "\<sigma> \<noteq> \<sigma>'"
+    hence "ptrm_infer_type \<Gamma> (PApp A B) = None" using * ** by simp
+    hence False using H by auto
+    thus "\<sigma> = \<sigma>'" by blast
+  qed
+  hence **: "ptrm_infer_type \<Gamma> B = Some \<sigma>" using ** by auto
+
+  have "ptrm_infer_type \<Gamma> (PApp A B) = Some \<tau>'" using * ** by auto
+  hence "\<tau> = \<tau>'" using H by auto
+  hence *: "ptrm_infer_type \<Gamma> A = Some (TArr \<sigma> \<tau>)" using * by auto
+
+  show "\<exists>\<sigma>. ptrm_infer_type \<Gamma> A = Some (TArr \<sigma> \<tau>) \<and> ptrm_infer_type \<Gamma> B = Some \<sigma>"
+    using * ** by auto
+qed
 
 lemma infer_fnE:
   assumes "infer \<Gamma> (Fn x T A) = Some \<tau>"
   shows "\<exists>\<sigma>. \<tau> = TArr T \<sigma> \<and> infer (\<Gamma>(x \<mapsto> T)) A = Some \<sigma>"
-sorry
+using assms proof(transfer)
+  fix x :: 'a and \<Gamma> T A \<tau>
+  assume H: "ptrm_infer_type \<Gamma> (PFn x T A) = Some \<tau>"
+
+  have "ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A \<noteq> None"
+  proof(rule classical)
+    assume "\<not> ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A \<noteq> None"
+    hence "ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = None" by auto
+    hence "ptrm_infer_type \<Gamma> (PFn x T A) = None" by auto
+    hence False using H by auto
+    thus ?thesis by blast
+  qed
+  from this obtain \<sigma> where *: "ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = Some \<sigma>" by auto
+
+  have "ptrm_infer_type \<Gamma> (PFn x T A) = Some (TArr T \<sigma>)" using * by auto
+  hence "\<tau> = TArr T \<sigma>" using H by auto
+  thus "\<exists>\<sigma>. \<tau> = TArr T \<sigma> \<and> ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = Some \<sigma>"
+    using * by auto
+qed
 
 theorem infer_valid:
   shows "(\<Gamma> \<turnstile> M : \<tau>) = (infer \<Gamma> M = Some \<tau>)"
@@ -430,6 +554,393 @@ proof -
   qed
 
   show ?thesis using 1 and 2 by blast
+qed
+
+
+
+lift_definition subst :: "'a trm \<Rightarrow> 'a \<Rightarrow> 'a trm \<Rightarrow> 'a trm" ("_[_ ::= _]") is ptrm_subst
+  using ptrm_subst_alpha_equiv_left ptrm_subst_alpha_equiv_right ptrm_alpha_equiv_transitive
+  by blast
+
+lemma subst_simp:
+  shows
+    "(Var x)[z ::= M] = (if x = z then M else Var x)"
+    "(App A B)[z ::= M] = App (A[z ::= M]) (B[z ::= M])"
+    "(Fn x T A)[z ::= M] =
+       (if x = z
+         then Fn x T A
+         else (let y = fresh_in ({z} \<union> fvs A \<union> fvs M) in Fn y T (([x \<leftrightarrow> y] \<cdot> A)[z ::= M])))"
+  apply (transfer, simp add: ptrm_alpha_equiv_reflexive)[]
+  apply (transfer, simp add: ptrm_alpha_equiv_reflexive)[]
+  apply (transfer', simp add: ptrm_alpha_equiv_reflexive)[]
+done
+
+lemma subst_fvs:
+  shows "fvs (M[z ::= N]) \<subseteq> (fvs M - {z}) \<union> fvs N"
+proof(induction "depth M" arbitrary: M rule: less_induct)
+  fix M :: "'a trm"
+  assume IH: "\<And>K. depth K < depth M \<Longrightarrow> fvs (K[z ::= N]) \<subseteq> fvs K - {z} \<union> fvs N"
+  thus "fvs (M[z ::= N]) \<subseteq> fvs M - {z} \<union> fvs N"
+  proof(induction M rule: trm_cases)
+    case (1 x)
+      hence M: "M = Var x" by auto
+      consider "x = z" | "x \<noteq> z" by auto
+      thus ?case proof(cases)
+        case 1
+          thus ?thesis using M subst_simp Un_upper2 by simp
+        next
+        case 2
+          thus ?thesis
+            using
+              M subst_simp(1) fvs_simp(1) Diff_empty Diff_insert0 insert_Diff le_supI1 order_refl
+              singleton_insert_inj_eq
+            by metis
+        next
+      qed
+    next
+    case (2 A B)
+      hence M: "M = App A B" by auto
+      have "depth A < depth (App A B)" and "depth B < depth (App A B)"
+        by((transfer, auto)+)
+      hence "depth A < depth M" and "depth B < depth M" using M by auto
+      hence
+        A:"fvs (A[z ::= N]) \<subseteq> fvs A - {z} \<union> fvs N" and
+        B: "fvs (B[z ::= N]) \<subseteq> fvs B - {z} \<union> fvs N"
+        using IH by auto
+
+      have "fvs ((App A B)[z ::= N]) = fvs (App (A[z ::= N]) (B[z ::= N]))"
+        using subst_simp(2) by auto
+      also have "... = fvs (A[z ::= N]) \<union> fvs (B[z ::= N])"
+        using fvs_simp(2) by metis
+      also have "... \<subseteq> (fvs A - {z} \<union> fvs N) \<union> (fvs B - {z} \<union> fvs N)"
+        using A B by auto
+      also have "... = (fvs A \<union> fvs B) - {z} \<union> fvs N" by auto
+      also have "... = fvs (App A B) - {z} \<union> fvs N" using fvs_simp(2) by metis
+      finally show ?case using M by metis
+    next
+    case (3 x T A)
+      hence M: "M = Fn x T A" by auto
+      consider "z = x" | "z \<noteq> x" by auto
+      thus ?case proof(cases)
+        case 1
+          hence "fvs ((Fn x T A)[z ::= N]) = fvs (Fn x T A)"
+            using subst_simp(3) by simp
+          also have "... = fvs A - {x}" using fvs_simp(3) by metis
+          also have "... = fvs A - {x} - {z}" using `z = x` by auto
+          also have "... \<subseteq> fvs A - {x} - {z} \<union> fvs N" by auto
+          also have "... = fvs (Fn x T A) - {z} \<union> fvs N" using fvs_simp(3) by metis
+          finally show ?thesis using M by metis
+        next
+        case 2
+          obtain y where y: "y = fresh_in ({z} \<union> fvs A \<union> fvs N)" by auto
+          have "depth ([x \<leftrightarrow> y] \<cdot> A) = depth A" using depth_prm by metis
+          hence "depth ([x \<leftrightarrow> y] \<cdot> A) < depth (Fn x T A)" by(transfer', auto)
+          hence "depth ([x \<leftrightarrow> y] \<cdot> A) < depth M" using M by auto
+          hence A: "fvs (([x \<leftrightarrow> y] \<cdot> A)[z ::= N]) \<subseteq> fvs ([x \<leftrightarrow> y] \<cdot> A) - {z} \<union> fvs N"
+            using IH by metis
+
+          have "finite ({z} \<union> fvs A \<union> fvs N)" using fvs_finite by auto
+          hence "y \<notin> ({z} \<union> fvs A \<union> fvs N)"
+            using y fresh_axioms unfolding class.fresh_def by metis
+          hence "y \<noteq> z" and "y \<notin> fvs A" and "y \<notin> fvs N" by auto
+
+          have "fvs ((Fn x T A)[z ::= N]) = fvs (Fn y T (([x \<leftrightarrow> y] \<cdot> A)[z ::= N]))"
+            using subst_simp(3) `z \<noteq> x` y by metis
+          also have "... = fvs (([x \<leftrightarrow> y] \<cdot> A)[z ::= N]) - {y}"
+            using fvs_simp(3) by metis
+          also have "... \<subseteq> fvs ([x \<leftrightarrow> y] \<cdot> A) - {z} \<union> fvs N - {y}"
+            using A by auto
+          also have "... = (fvs ([x \<leftrightarrow> y] \<cdot> A) - {y}) - {z} \<union> fvs N" using `y \<notin> fvs N` by auto
+          also have "... = fvs (Fn x T A) - {z} \<union> fvs N"
+          proof(cases "x \<in> fvs A")
+            case True
+              have "fvs ([x \<leftrightarrow> y] \<cdot> A) - {y} = ([x \<leftrightarrow> y] {$} fvs A) - {y}"
+                using trm_prm_fvs by metis
+              also have "... = fvs A - {x} \<union> {y} - {y}"
+                using prm_set_unit_action `y \<notin> fvs A` `x \<in> fvs A` by metis
+              also have "... = fvs A - {x}" using `y \<notin> fvs A` by auto
+              also have "... = fvs (Fn x T A)" using fvs_simp(3) by metis
+              finally have "fvs ([x \<leftrightarrow> y] \<cdot> A) - {y} = fvs (Fn x T A)".
+              thus ?thesis by auto
+            next
+            case False
+              consider "x = y" | "x \<noteq> y" by auto
+              hence "fvs (Fn x T A) = fvs ([x \<leftrightarrow> y] \<cdot> A) - {y}"
+              proof(cases)
+                case 1
+                  thus ?thesis using prm_unit_equal_id trm_prm_id fvs_simp(3) by metis
+                next
+                case 2
+                  hence "Fn x T A = Fn y T ([x \<leftrightarrow> y] \<cdot> A)"
+                    using fn_eq `y \<notin> fvs A` prm_unit_commutes by metis
+                  thus ?thesis using fvs_simp(3) by metis
+                next
+              qed
+              thus ?thesis by auto
+            next
+          qed
+          finally show ?thesis using M by metis
+        next
+      qed
+    next
+  qed
+qed
+
+lemma subst_prm:
+  shows "(\<pi> \<cdot> (A[z ::= N])) = ((\<pi> \<cdot> A)[(\<pi> $ z) ::= (\<pi> \<cdot> N)])"
+proof(induction A rule: trm_induct)
+  case (1 x)
+    consider "z = x" | "z \<noteq> x" by auto
+    thus ?case proof(cases)
+      case 1
+        have "\<pi> \<cdot> ((Var x)[z ::= N]) = \<pi> \<cdot> N" using subst_simp(1) `z = x` by metis
+        moreover have "(\<pi> \<cdot> Var x)[\<pi> $ z ::= \<pi> \<cdot> N] = \<pi> \<cdot> N"
+          using `z = x` trm_prm_simp(1) subst_simp(1) by metis
+        ultimately show ?thesis by metis
+      next
+      case 2
+        hence "\<pi> $ z \<noteq> \<pi> $ x" using prm_apply_unequal by metis
+        hence "(\<pi> \<cdot> Var x)[\<pi> $ z ::= \<pi> \<cdot> N] = Var (\<pi> $ x)"
+          using trm_prm_simp(1) subst_simp(1) by metis
+        moreover have "\<pi> \<cdot> ((Var x)[z ::= N]) = Var (\<pi> $ x)"
+          using trm_prm_simp(1) subst_simp(1) `z \<noteq> x` by metis
+        ultimately show ?thesis by metis
+      next
+    qed
+  next
+  case (2 A B)
+    thus ?case using trm_prm_simp(2) subst_simp(2) by metis
+  next
+  case (3 x T A)
+    consider "z = x" | "z \<noteq> x" by auto
+    thus ?case proof(cases)
+      case 1
+        have "(\<pi> \<cdot> Fn x T A)[\<pi> $ z ::= \<pi> \<cdot> N] = Fn (\<pi> $ x) T (\<pi> \<cdot> A)"
+          using `z = x` trm_prm_simp(3) subst_simp(3) by metis
+        moreover have "\<pi> \<cdot> ((Fn x T A)[z ::= N]) = Fn (\<pi> $ x) T (\<pi> \<cdot> A)"
+          using `z = x` trm_prm_simp(3) subst_simp(3) by metis
+        ultimately show ?thesis by metis
+      next
+      case 2
+        thus ?thesis sorry
+      next
+    qed
+  next
+qed
+
+lemma typing_subst:
+  assumes "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> M : \<theta>" "\<Gamma> \<turnstile> N : \<tau>"
+  shows "\<Gamma> \<turnstile> (M[z ::= N]) : \<theta>"
+using assms proof(induction "depth M" arbitrary: \<Gamma> M \<theta> rule: less_induct)
+  fix M :: "'a trm" and \<theta> \<Gamma>
+  assume IH: "\<And>K \<Gamma> T. \<lbrakk>depth K < depth M; \<Gamma>(z \<mapsto> \<tau>) \<turnstile> K : T; \<Gamma> \<turnstile> N : \<tau>\<rbrakk> \<Longrightarrow> \<Gamma> \<turnstile> K[z ::= N] : T"
+  and "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> M : \<theta>" "\<Gamma> \<turnstile> N : \<tau>"
+  thus "\<Gamma> \<turnstile> M[z ::= N] : \<theta>"
+  proof(induction M rule: trm_cases)
+    case (1 x)
+      hence M: "M = Var x" by auto
+      from `\<Gamma>(z \<mapsto> \<tau>) \<turnstile> M : \<theta>` have *: "(\<Gamma>(z \<mapsto> \<tau>)) x = Some \<theta>"
+        using typing_varE M by metis
+
+      consider "x = z" | "x \<noteq> z" by auto
+      thus ?case proof(cases)
+        case 1
+          hence "\<theta> = \<tau>" using * by auto
+          moreover have "M[z ::= N] = N" using M `x = z` subst_simp(1) by auto
+          ultimately show ?thesis using `\<Gamma> \<turnstile> N : \<tau>` by metis
+        next
+        case 2
+          hence "\<Gamma> x = Some \<theta>" using * by auto
+          moreover have "M[z ::= N] = M" using M `x \<noteq> z` subst_simp(1) by auto
+          ultimately show ?thesis using M typing.tvar by metis
+        next
+      qed
+    next
+    case (2 A B)
+      hence M: "M = App A B" by auto
+      from `\<Gamma>(z \<mapsto> \<tau>) \<turnstile> M : \<theta>` obtain S
+        where "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> A : (TArr S \<theta>)" and "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> B : S"
+        using typing_appE M by metis
+      moreover have "depth A < depth (App A B)" and "depth B < depth (App A B)"
+        by((transfer, auto)+)
+      
+      ultimately have "\<Gamma> \<turnstile> A[z ::= N] : (TArr S \<theta>)" and "\<Gamma> \<turnstile> B[z ::= N] : S"
+        using IH `\<Gamma> \<turnstile> N : \<tau>` M by metis+
+      thus ?thesis using M subst_simp(2) typing.tapp by metis
+    next
+    case (3 x T A)
+      hence M: "M = Fn x T A" by auto
+      from `\<Gamma>(z \<mapsto> \<tau>) \<turnstile> M: \<theta>` and M obtain S
+        where "\<theta> = (TArr T S)" and *: "\<Gamma>(z \<mapsto> \<tau>)(x \<mapsto> T) \<turnstile> A : S"
+        using typing_fnE by metis
+  
+      consider "z = x" | "z \<noteq> x" by auto
+      thus ?case proof(cases)
+        case 1
+          hence "\<Gamma>(x \<mapsto> T) \<turnstile> A : S" using * by auto
+          hence "\<Gamma> \<turnstile> Fn x T A : \<theta>" using `\<theta> = (TArr T S)` typing.tfn by metis
+          moreover have "(Fn x T A)[z ::= N] = Fn x T A" using subst_simp(3) `z = x` by simp
+          ultimately show ?thesis using M by metis
+        next
+        case 2
+          obtain y where y: "y = fresh_in ({z} \<union> fvs A \<union> fvs N)" by auto
+          have "finite ({z} \<union> fvs A \<union> fvs N)" using fvs_finite by auto
+          hence "y \<notin> ({z} \<union> fvs A \<union> fvs N)"
+            using y fresh_axioms unfolding class.fresh_def by metis
+          hence "y \<noteq> z" and "y \<notin> fvs A" and "y \<notin> fvs N" by auto
+
+          have "depth ([x \<leftrightarrow> y] \<cdot> A) = depth A" using depth_prm by metis
+          hence 1: "depth ([x \<leftrightarrow> y] \<cdot> A) < depth (Fn x T A)" by(transfer', auto)
+
+          from `y \<notin> fvs A` have "\<Gamma>(z \<mapsto> \<tau>)(y \<mapsto> T) \<turnstile> [x \<leftrightarrow> y] \<cdot> A : S"
+            using * typing_swp by metis
+          hence 2: "\<Gamma>(y \<mapsto> T)(z \<mapsto> \<tau>) \<turnstile> [x \<leftrightarrow> y] \<cdot> A : S"
+            using fun_upd_twist `y \<noteq> z` by metis
+
+          have 3: "\<Gamma>(y \<mapsto> T) \<turnstile> N : \<tau>" using `y \<notin> fvs N` `\<Gamma> \<turnstile> N : \<tau>` typing_weaken by metis
+
+          have "\<Gamma>(y \<mapsto> T) \<turnstile> (([x \<leftrightarrow> y] \<cdot> A)[z ::= N]) : S" using 1 2 3 IH M by metis
+          hence "\<Gamma> \<turnstile> Fn y T (([x \<leftrightarrow> y] \<cdot> A)[z ::= N]) : \<theta>"
+            using typing.tfn `\<theta> = (TArr T S)` by metis
+          moreover have "(Fn x T A)[z ::= N] = Fn y T (([x \<leftrightarrow> y] \<cdot> A)[z ::= N])"
+            using subst_simp(3) y `z \<noteq> x` by metis
+          ultimately show ?thesis using M by metis
+        next
+      qed
+    next
+  qed
+qed
+
+
+inductive beta_reduces :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ \<rightarrow>\<beta> _") where
+  beta: "(App (Fn x T A) M) \<rightarrow>\<beta> (A[x ::= M])"
+| app1: "A \<rightarrow>\<beta> A' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A' B)"
+| app2: "B \<rightarrow>\<beta> B' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A B')"
+| fn:   "A \<rightarrow>\<beta> A' \<Longrightarrow> (Fn x T A) \<rightarrow>\<beta> (Fn x T A')"
+
+lemma beta_reduces_fvs:
+  assumes "M \<rightarrow>\<beta> M'"
+  shows "fvs M' \<subseteq> fvs M"
+using assms proof(induction)
+  case (beta x T A M)
+    thus ?case using fvs_simp(2) fvs_simp(3) subst_fvs by metis
+  next
+  case (app1 A A' B)
+    thus ?case
+      using fvs_simp(2) Un_assoc Un_left_commute subset_Un_eq sup.right_idem
+      by metis
+  next
+  case (app2 B B' A)
+    thus ?case
+      using fvs_simp(2) Un_assoc Un_left_absorb subset_Un_eq
+      by metis
+  next
+  case (fn A A' x T)
+    thus ?case
+      using fvs_simp(3) DiffD2 DiffI Diff_subset subset_iff
+      by smt
+  next
+qed
+
+lemma beta_reduces_prm:
+  assumes "M \<rightarrow>\<beta> M'"
+  shows "(\<pi> \<cdot> M) \<rightarrow>\<beta> (\<pi> \<cdot> M')"
+using assms proof(induction)
+  case (beta x T A M)
+    thus ?case using beta_reduces.beta trm_prm_simp(2) trm_prm_simp(3) subst_prm by metis
+  next
+  case (app1 A A' B)
+    thus ?case using beta_reduces.app1 trm_prm_simp(2) by metis
+  next
+  case (app2 B B' A)
+    thus ?case using beta_reduces.app2 trm_prm_simp(2) by metis
+  next
+  case (fn A A' x T)
+    thus ?case using beta_reduces.fn trm_prm_simp(3) by metis
+  next
+qed
+
+lemma beta_reduces_left_varE:
+  assumes "(Var x) \<rightarrow>\<beta> M'"
+  shows "False"
+using assms by(cases, auto simp add: trm_distinct)
+
+lemma beta_reduces_left_appE:
+  assumes "(App A B) \<rightarrow>\<beta> M'"
+  shows "
+    (\<exists>x T X. A = (Fn x T X) \<and> M' = (X[x ::= B])) \<or>
+    (\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = App A' B) \<or>
+    (\<exists>B'. (B \<rightarrow>\<beta> B') \<and> M' = App A B')
+  "
+using assms by(
+  cases,
+  metis trm_simp(2) trm_simp(3),
+  metis trm_simp(2) trm_simp(3),
+  metis trm_simp(2) trm_simp(3),
+  metis trm_distinct(6)
+)
+
+lemma beta_reduces_left_fnE:
+  assumes "(Fn x T A) \<rightarrow>\<beta> M'"
+  shows "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = (Fn x T A')"
+using assms proof(cases, metis trm_distinct(6), metis trm_distinct(6), metis trm_distinct(6))
+  case (fn B B' y S)
+    consider "x = y \<and> T = S \<and> A = B" | "x \<noteq> y \<and> T = S \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
+      using trm_simp(4) `Fn x T A = Fn y S B` by metis
+    thus ?thesis proof(cases)
+      case 1
+        thus ?thesis using fn by auto
+      next
+      case 2
+        thus ?thesis using fn beta_reduces_fvs beta_reduces_prm fn_eq by fastforce
+      next
+    qed
+  next
+qed
+
+theorem preservation:
+  assumes "\<Gamma> \<turnstile> M : \<tau>" and "M \<rightarrow>\<beta> M'"
+  shows "\<Gamma> \<turnstile> M' : \<tau>"
+using assms proof(induction arbitrary: M' rule: typing.induct)
+  case (tvar \<Gamma> x \<tau>)
+    thus ?case using beta_reduces_left_varE by metis
+  next
+  case (tapp \<Gamma> A \<tau> \<sigma> B M')
+    from `(App A B) \<rightarrow>\<beta> M'` consider
+      "(\<exists>x T X. A = (Fn x T X) \<and> M' = (X[x ::= B]))" |
+      "(\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = App A' B)" |
+      "(\<exists>B'. (B \<rightarrow>\<beta> B') \<and> M' = App A B')" using beta_reduces_left_appE by metis
+
+    thus ?case proof(cases)
+      case 1
+        from this obtain x T X where "A = Fn x T X" and *: "M' = (X[x ::= B])" by auto
+
+        have "\<Gamma>(x \<mapsto> \<tau>) \<turnstile> X : \<sigma>" using typing_fnE `\<Gamma> \<turnstile> A : (TArr \<tau> \<sigma>)` `A = Fn x T X` type.inject
+          by blast
+        hence "\<Gamma> \<turnstile> (X[x ::= B]) : \<sigma>" using typing_subst `\<Gamma> \<turnstile> B : \<tau>` by metis
+        thus ?thesis using * by auto
+      next
+      case 2
+        from this obtain A' where "A \<rightarrow>\<beta> A'" and *: "M' = (App A' B)" by auto
+        hence "\<Gamma> \<turnstile> A' : (TArr \<tau> \<sigma>)" using tapp.IH(1) by metis
+        hence "\<Gamma> \<turnstile> (App A' B) : \<sigma>" using `\<Gamma> \<turnstile> B : \<tau>` typing.tapp by metis
+        thus ?thesis using * by auto
+      next
+      case 3
+        from this obtain B' where "B \<rightarrow>\<beta> B'" and *: "M' = (App A B')" by auto
+        hence "\<Gamma> \<turnstile> B' : \<tau>" using tapp.IH(2) by metis
+        hence "\<Gamma> \<turnstile> (App A B') : \<sigma>" using `\<Gamma> \<turnstile> A : (TArr \<tau> \<sigma>)` typing.tapp by metis
+        thus ?thesis using * by auto
+      next
+    qed
+  next
+  case (tfn \<Gamma> x T A \<sigma>)
+    from this obtain A' where "A \<rightarrow>\<beta> A'" and *: "M' = (Fn x T A')"
+      using beta_reduces_left_fnE by metis
+    hence "\<Gamma>(x \<mapsto> T) \<turnstile> A' : \<sigma>" using tfn.IH by metis
+    hence "\<Gamma> \<turnstile> (Fn x T A') : (TArr T \<sigma>)" using typing.tfn by metis
+    thus ?case using * by auto
+  next
 qed
 
 end
