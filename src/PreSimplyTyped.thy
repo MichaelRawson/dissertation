@@ -677,7 +677,6 @@ lemma ptrm_subst_alpha_equiv_left:
   assumes "X \<approx> Y"
   shows "ptrm_subst X z M \<approx> ptrm_subst Y z M"
 sorry
-
 (*
 using assms proof(induction "size X" arbitrary: X Y rule: less_induct)
   fix X Y :: "'a ptrm"

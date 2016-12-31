@@ -812,13 +812,13 @@ using assms proof(induction "depth M" arbitrary: \<Gamma> M \<theta> rule: less_
 qed
 
 
-inductive beta_reduces :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ \<rightarrow>\<beta> _") where
+inductive beta_reduction :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ \<rightarrow>\<beta> _") where
   beta: "(App (Fn x T A) M) \<rightarrow>\<beta> (A[x ::= M])"
 | app1: "A \<rightarrow>\<beta> A' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A' B)"
 | app2: "B \<rightarrow>\<beta> B' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A B')"
 | fn:   "A \<rightarrow>\<beta> A' \<Longrightarrow> (Fn x T A) \<rightarrow>\<beta> (Fn x T A')"
 
-lemma beta_reduces_fvs:
+lemma beta_reduction_fvs:
   assumes "M \<rightarrow>\<beta> M'"
   shows "fvs M' \<subseteq> fvs M"
 using assms proof(induction)
@@ -842,30 +842,30 @@ using assms proof(induction)
   next
 qed
 
-lemma beta_reduces_prm:
+lemma beta_reduction_prm:
   assumes "M \<rightarrow>\<beta> M'"
   shows "(\<pi> \<cdot> M) \<rightarrow>\<beta> (\<pi> \<cdot> M')"
 using assms proof(induction)
   case (beta x T A M)
-    thus ?case using beta_reduces.beta trm_prm_simp(2) trm_prm_simp(3) subst_prm by metis
+    thus ?case using beta_reduction.beta trm_prm_simp(2) trm_prm_simp(3) subst_prm by metis
   next
   case (app1 A A' B)
-    thus ?case using beta_reduces.app1 trm_prm_simp(2) by metis
+    thus ?case using beta_reduction.app1 trm_prm_simp(2) by metis
   next
   case (app2 B B' A)
-    thus ?case using beta_reduces.app2 trm_prm_simp(2) by metis
+    thus ?case using beta_reduction.app2 trm_prm_simp(2) by metis
   next
   case (fn A A' x T)
-    thus ?case using beta_reduces.fn trm_prm_simp(3) by metis
+    thus ?case using beta_reduction.fn trm_prm_simp(3) by metis
   next
 qed
 
-lemma beta_reduces_left_varE:
+lemma beta_reduction_left_varE:
   assumes "(Var x) \<rightarrow>\<beta> M'"
   shows "False"
 using assms by(cases, auto simp add: trm_distinct)
 
-lemma beta_reduces_left_appE:
+lemma beta_reduction_left_appE:
   assumes "(App A B) \<rightarrow>\<beta> M'"
   shows "
     (\<exists>x T X. A = (Fn x T X) \<and> M' = (X[x ::= B])) \<or>
@@ -880,7 +880,7 @@ using assms by(
   metis trm_distinct(6)
 )
 
-lemma beta_reduces_left_fnE:
+lemma beta_reduction_left_fnE:
   assumes "(Fn x T A) \<rightarrow>\<beta> M'"
   shows "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = (Fn x T A')"
 using assms proof(cases, metis trm_distinct(6), metis trm_distinct(6), metis trm_distinct(6))
@@ -892,7 +892,7 @@ using assms proof(cases, metis trm_distinct(6), metis trm_distinct(6), metis trm
         thus ?thesis using fn by auto
       next
       case 2
-        thus ?thesis using fn beta_reduces_fvs beta_reduces_prm fn_eq by fastforce
+        thus ?thesis using fn beta_reduction_fvs beta_reduction_prm fn_eq by fastforce
       next
     qed
   next
@@ -903,13 +903,13 @@ theorem preservation:
   shows "\<Gamma> \<turnstile> M' : \<tau>"
 using assms proof(induction arbitrary: M' rule: typing.induct)
   case (tvar \<Gamma> x \<tau>)
-    thus ?case using beta_reduces_left_varE by metis
+    thus ?case using beta_reduction_left_varE by metis
   next
   case (tapp \<Gamma> A \<tau> \<sigma> B M')
     from `(App A B) \<rightarrow>\<beta> M'` consider
       "(\<exists>x T X. A = (Fn x T X) \<and> M' = (X[x ::= B]))" |
       "(\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = App A' B)" |
-      "(\<exists>B'. (B \<rightarrow>\<beta> B') \<and> M' = App A B')" using beta_reduces_left_appE by metis
+      "(\<exists>B'. (B \<rightarrow>\<beta> B') \<and> M' = App A B')" using beta_reduction_left_appE by metis
 
     thus ?case proof(cases)
       case 1
@@ -936,10 +936,110 @@ using assms proof(induction arbitrary: M' rule: typing.induct)
   next
   case (tfn \<Gamma> x T A \<sigma>)
     from this obtain A' where "A \<rightarrow>\<beta> A'" and *: "M' = (Fn x T A')"
-      using beta_reduces_left_fnE by metis
+      using beta_reduction_left_fnE by metis
     hence "\<Gamma>(x \<mapsto> T) \<turnstile> A' : \<sigma>" using tfn.IH by metis
     hence "\<Gamma> \<turnstile> (Fn x T A') : (TArr T \<sigma>)" using typing.tfn by metis
     thus ?case using * by auto
+  next
+qed
+
+inductive is_value :: "'a trm \<Rightarrow> bool" where
+  var: "is_value (Var x)"
+| app_var: "is_value B \<Longrightarrow> is_value (App (Var x) B)"
+| app_app: "\<lbrakk>is_value (App C D); is_value B\<rbrakk> \<Longrightarrow> is_value (App (App C D) B)"
+| fn:  "is_value A \<Longrightarrow> is_value (Fn x T A)"
+
+theorem progress:
+  assumes "\<Gamma> \<turnstile> M : \<tau>"
+  shows "is_value M \<or> (\<exists>M'. (M \<rightarrow>\<beta> M'))"
+using assms proof(induction M arbitrary: \<Gamma> \<tau> rule: trm_induct)
+  case (1 x)
+    thus ?case using is_value.var by metis
+  next
+  case (2 A B)
+    from `\<Gamma> \<turnstile> App A B : \<tau>` obtain \<sigma>
+      where "\<Gamma> \<turnstile> A : (TArr \<sigma> \<tau>)" and "\<Gamma> \<turnstile> B : \<sigma>"
+      using typing_appE by metis
+    hence A: "is_value A \<or> (\<exists>A'. (A \<rightarrow>\<beta> A'))" and B: "is_value B \<or> (\<exists>B'. (B \<rightarrow>\<beta> B'))"
+      using "2.IH" by auto
+
+    consider "is_value B" | "\<exists>B'. (B \<rightarrow>\<beta> B')" using B by auto
+    thus ?case proof(cases)
+      case 1
+        consider "is_value A" | "\<exists>A'. (A \<rightarrow>\<beta> A')" using A by auto
+        thus ?thesis proof(cases)
+          case 1
+            thus ?thesis proof(induction A rule: trm_cases)
+              case (1 x)
+                thus ?thesis using `is_value B` is_value.app_var by metis
+              next
+              case (2 C D)
+                thus ?thesis using `is_value B` is_value.app_app by metis
+              next
+              case (3 y S X)
+                hence "(App A B) \<rightarrow>\<beta> (X[y ::= B])" using beta_reduction.beta by metis
+                thus ?thesis by auto
+              next
+            qed
+          next
+          case 2
+            thus ?thesis using beta_reduction.app1 by metis
+          next
+        qed
+      next
+      case 2
+        thus ?thesis using beta_reduction.app2 by metis
+      next
+    qed
+  next
+  case (3 x T A)
+    from `\<Gamma> \<turnstile> Fn x T A : \<tau>` obtain \<sigma>
+      where "\<tau> = TArr T \<sigma>" and "\<Gamma>(x \<mapsto> T) \<turnstile> A : \<sigma>"
+      using typing_fnE by metis
+    from `\<Gamma>(x \<mapsto> T) \<turnstile> A : \<sigma>` consider "is_value A" | "\<exists>A'. (A \<rightarrow>\<beta> A')"
+      using "3.IH" by metis
+
+    thus ?case proof(cases)
+      case 1
+        thus ?thesis using is_value.fn by metis
+      next
+      case 2
+        from this obtain A' where "A \<rightarrow>\<beta> A'" by auto
+        obtain M' where "M' = Fn x T A'" by auto
+        hence "(Fn x T A) \<rightarrow>\<beta> M'" using `A \<rightarrow>\<beta> A'` beta_reduction.fn by metis
+        thus ?thesis by auto
+      next
+    qed
+  next
+qed
+
+inductive beta_reduces :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ \<rightarrow>\<beta>\<^sup>* _") where
+  reflexive:  "M \<rightarrow>\<beta>\<^sup>* M"
+| transitive: "\<lbrakk>M \<rightarrow>\<beta>\<^sup>* M'; M' \<rightarrow>\<beta> M''\<rbrakk> \<Longrightarrow> M \<rightarrow>\<beta>\<^sup>* M''"
+
+lemma progress':
+  assumes "M \<rightarrow>\<beta>\<^sup>* M'" "\<Gamma> \<turnstile> M : \<tau>"
+  shows "\<Gamma> \<turnstile> M' : \<tau>"
+using assms proof(induction)
+  case (reflexive M)
+    thus ?case.
+  next
+  case (transitive M M' M'')
+    thus ?case using preservation by metis
+  next
+qed
+
+theorem safety:
+  assumes "M \<rightarrow>\<beta>\<^sup>* M'" "\<Gamma> \<turnstile> M : \<tau>"
+  shows "is_value M' \<or> (\<exists>M''. (M' \<rightarrow>\<beta> M''))"
+using assms proof(induction)
+  case (reflexive M)
+    thus ?case using progress by metis
+  next
+  case (transitive M M' M'')
+    hence "\<Gamma> \<turnstile> M' : \<tau>" using progress' by metis
+    hence "\<Gamma> \<turnstile> M'' : \<tau>" using preservation `M' \<rightarrow>\<beta> M''` by metis
+    thus ?case using progress by metis
   next
 qed
 
