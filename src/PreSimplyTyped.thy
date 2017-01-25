@@ -677,46 +677,6 @@ lemma ptrm_subst_alpha_equiv_left:
   assumes "X \<approx> Y"
   shows "ptrm_subst X z M \<approx> ptrm_subst Y z M"
 sorry
-(*
-using assms proof(induction "size X" arbitrary: X Y rule: less_induct)
-  fix X Y :: "'a ptrm"
-  assume IH: "\<And>K J. \<lbrakk>size K < size X; K \<approx> J\<rbrakk> \<Longrightarrow> ptrm_subst K z M \<approx> ptrm_subst J z M"
-  and "X \<approx> Y"
-
-  show "ptrm_subst X z M \<approx> ptrm_subst Y z M"
-  using `X \<approx> Y` IH proof(induction rule: ptrm_alpha_equiv.induct)
-    case (fn1 A B x T)
-      consider "z = x" | "z \<noteq> x" by auto
-      thus ?case proof(cases)
-        case 1
-          thus ?thesis using fn1 ptrm_alpha_equiv.fn1 ptrm_subst.simps(3) by fastforce
-        next
-        case 2
-          obtain y1 where y1: "y1 = fresh_in({z} \<union> ptrm_fvs A \<union> ptrm_fvs M)" by auto
-          hence *: "ptrm_subst (PFn x T A) z M = PFn y1 T (ptrm_subst ([x \<leftrightarrow> y1] \<bullet> A) z M)"
-            using `z \<noteq> x` ptrm_subst.simps(3) by metis
-
-          obtain y2 where y2: "y2 = fresh_in({z} \<union> ptrm_fvs B \<union> ptrm_fvs M)" by auto
-          hence **: "ptrm_subst (PFn x T B) z M = PFn y2 T (ptrm_subst ([x \<leftrightarrow> y2] \<bullet> B) z M)"
-            using `z \<noteq> x` ptrm_subst.simps(3) by metis
-
-          have "ptrm_fvs A = ptrm_fvs B" using `A \<approx> B` ptrm_alpha_equiv_fvs by metis
-          hence "y1 = y2" using y1 y2 by auto
-          hence "[x \<leftrightarrow> y1] \<bullet> A \<approx> [x \<leftrightarrow> y2] \<bullet> B" using `A \<approx> B` ptrm_alpha_equiv_prm by metis
-
-          have "size ([x \<leftrightarrow> y1] \<bullet> A) = size A"
-            using ptrm_size_prm by metis
-          hence "size ([x \<leftrightarrow> y1] \<bullet> A) < size (PFn x T A)" by auto
-
-          hence "ptrm_subst ([x \<leftrightarrow> y1] \<bullet> A) z M \<approx> ptrm_subst ([x \<leftrightarrow> y2] \<bullet> B) z M"
-            using fn1.prems `[x \<leftrightarrow> y1] \<bullet> A \<approx> [x \<leftrightarrow> y2] \<bullet> B` by metis
-          thus ?thesis using * ** `y1 = y2` ptrm_alpha_equiv.fn1 by metis
-        next
-      qed
-    next
-    case (fn2 a b A B T)
-      thus ?case
-*)
 
 lemma ptrm_subst_alpha_equiv_right:
   assumes "M \<approx> N"
