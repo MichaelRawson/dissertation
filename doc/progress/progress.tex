@@ -1,0 +1,39 @@
+\documentclass[12pt]{article}
+\title{Part II Project Proposal: Formalising Simply-Typed \(\lambda\)-Calculus}
+\author{Michael Rawson}
+
+\begin{document}
+\input{title}
+\section*{Schedule}
+The project is ahead of schedule by several weeks: to be more specific, the task assigned for the period of time 6/2--20/2 is nearing completion.
+
+\section*{Unexpected Difficulties}
+No \emph{completely} unexpected difficulties have arisen.
+Some parts of the project have turned out to be more challenging or fiddly than others, notably in the treatment of names in the calculus.
+However, dedicating sufficient time to them resolved all problems so far.
+
+\section*{Progress}
+So far, the following elements of my project are complete:
+\begin{itemize}
+\item
+datatypes for representing the the terms of the simply-typed $\lambda$-calculus and their types
+\item
+theory about permutations and their composition, application, and application to sets
+\item
+theory applying permutations to the simply-typed calculus
+\item
+an $\alpha$-equivalence relation defined using permutations, and a proof showing the relation is an equivalence relation
+\item
+a quotient type defining $\lambda$-terms modulo $\alpha$-equivalence
+\item
+``lifting'' of definitions and lemmas defined on the raw terms to the quotiented terms
+\item
+an inductively-defined typing relation, and a $\beta$-reduction relation
+\item
+proofs of several properties about the calculus, using these relations --- including progress and type-preservation
+\item
+a type inference algorithm defined on quotiented terms
+\item
+proofs of the algorithm's soundness and completeness
+\end{itemize}
+\end{document}
