@@ -1119,6 +1119,18 @@ using assms proof(induction)
   next
 qed
 
+lemma beta_reduces_fn:
+  assumes "A \<rightarrow>\<beta>\<^sup>* A'"
+  shows "(Fn x T A) \<rightarrow>\<beta>\<^sup>* (Fn x T A')"
+using assms proof(induction)
+  case (reflexive A)
+    thus ?case using beta_reduces.reflexive.
+  next
+  case (transitive A A' A'')
+    thus ?case using beta_reduces.transitive beta_reduction.fn by metis
+  next
+qed
+
 theorem preservation:
   assumes "M \<rightarrow>\<beta>\<^sup>* M'" "\<Gamma> \<turnstile> M : \<tau>"
   shows "\<Gamma> \<turnstile> M' : \<tau>"
@@ -1142,6 +1154,50 @@ using assms proof(induction)
     hence "\<Gamma> \<turnstile> M' : \<tau>" using preservation by metis
     hence "\<Gamma> \<turnstile> M'' : \<tau>" using preservation' `M' \<rightarrow>\<beta> M''` by metis
     thus ?case using progress by metis
+  next
+qed
+
+
+lemma substitution_inner:
+  assumes "M \<rightarrow>\<beta>\<^sup>* M'"
+  shows "(X[z ::= M]) \<rightarrow>\<beta>\<^sup>* (X[z ::= M'])"
+using assms proof(induction X rule: trm_strong_induct[where S="{z} \<union> fvs M"])
+  show "finite ({z} \<union> fvs M)" using fvs_finite by auto
+  next
+
+  case (1 x)
+    thus ?case 
+      by (cases "x = z", metis subst_simp_var1, metis subst_simp_var2 beta_reduces.reflexive)
+  next
+  case (2 A B)
+    hence "(A[z ::= M]) \<rightarrow>\<beta>\<^sup>* (A[z ::= M'])" "(B[z ::= M]) \<rightarrow>\<beta>\<^sup>* (B[z ::= M'])" by auto
+    hence "(App (A[z ::= M]) (B[z ::= M])) \<rightarrow>\<beta>\<^sup>* (App (A[z ::= M']) (B[z ::= M']))"
+      using beta_reduces_app_left beta_reduces_app_right beta_reduces_composition by metis
+    thus ?case using subst_simp_app by metis
+  next
+  case (3 x T A)
+    hence "x \<noteq> z" "x \<notin> fvs M" "x \<notin> fvs M'" "(A[z ::= M]) \<rightarrow>\<beta>\<^sup>* (A[z ::= M'])"
+      using beta_reduces_fvs by auto
+    hence "(Fn x T (A[z ::= M])) \<rightarrow>\<beta>\<^sup>* (Fn x T (A[z ::= M']))"
+      using beta_reduces_fn by metis
+    thus ?case using subst_simp_fn `x \<noteq> z` `x \<notin> fvs M` `x \<notin> fvs M'` by metis
+  next
+qed
+
+lemma substitution_outer':
+  assumes "A \<rightarrow>\<beta> A'"
+  shows "(A[z ::= M]) \<rightarrow>\<beta> (A'[z ::= M])"
+sorry
+
+lemma substitution_outer:
+  assumes "A \<rightarrow>\<beta>\<^sup>* A'"
+  shows "(A[x ::= X]) \<rightarrow>\<beta>\<^sup>* (A'[x ::= X])"
+using assms proof(induction)
+  case (reflexive A)
+    thus ?case using beta_reduces.reflexive.
+  next
+  case (transitive A A' A'')
+    thus ?case using substitution_outer' beta_reduces.transitive by metis
   next
 qed
 
