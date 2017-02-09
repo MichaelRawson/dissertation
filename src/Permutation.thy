@@ -264,6 +264,12 @@ lemma prm_set_membership:
   shows "\<pi> $ x \<in> \<pi> {$} S"
 using assms unfolding prm_set_def by simp
 
+lemma prm_set_notmembership:
+  assumes "x \<notin> S"
+  shows "\<pi> $ x \<notin> \<pi> {$} S"
+using assms unfolding prm_set_def 
+by (simp add: inj_image_mem_iff prm_apply_injective)
+
 lemma prm_set_singleton:
   shows "\<pi> {$} {x} = {\<pi> $ x}"
 unfolding prm_set_def by auto
@@ -355,4 +361,5 @@ using assms unfolding prm_disagreement_def by(transfer, metis preprm_disagreemen
 lemma prm_compose_push:
   shows "\<pi> \<diamondop> [a \<leftrightarrow> b] = [\<pi> $ a \<leftrightarrow> \<pi> $ b] \<diamondop> \<pi>"
 by(transfer, metis preprm_compose_push)
+
 end
