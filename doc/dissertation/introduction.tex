@@ -1,0 +1,30 @@
+\chapter{Introduction}
+This dissertation describes my part II project for the Computer Science Tripos, entitled \emph{Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed \(\lambda\)-Calculus}.
+The project consists of a series of machine-checked proofs about a typed \(\lambda\)-calculus, a type inference algorithm for the calculus, and a checked proof of correctness of the algorithm.
+
+\section{Motivation}
+After stating my interest in typed \(\lambda\)-calculi and computerised implementations thereof, my supervisor suggested that I implement a calculus, then prove it correct.
+Proofs about systems involving names are famously fiddly, so a proof-checker would be used to ensure the proofs asserting the implementation correct were themselves sound.
+
+Therefore, the project had several principle motivations:
+\begin{itemize}
+\item
+produce a high-quality implementation of a typed calculus, encoded in a proof assistant
+\item
+ensure the implementation is correct --- informal pen-and-paper arguments are prone to error, so I had to provide formal, verified proofs in the assistant
+\item
+extract working code that is proven to be correct
+\end{itemize}
+\section{Related Computer Science}
+The project draws on a wide-variety of areas in Computer Science: type theory, logic, formal verification and even HCI.
+
+By verifying a \emph{typed} calculus, the project required some theory about types, including proving properties such as the preservation of types under \(\beta\)-reduction.
+Verification itself requires some knowledge (and precise application) of logic, despite the best efforts of the proof-checking software.
+Additionally, the approaches taken with informal proof versus those with verified proof remain extremely different: while largely the informal proof's structure remains in a formal proof, fiddly details require some knowledge of common verification techniques and some specialist software knowledge.
+
+Finally, one aim of the project was to be easy to use and modify by others.
+The exact internal presentation of the calculus used in the verification does not usually matter, but if external users unfamiliar with the implementation details are to use it effectively, the presentation must include several niceties that might not otherwise be used.
+Picking the presentation of the calculus that minimises the effort required to use it required some thought about usability and interactions users might have.
+
+\section{Previous Work}
+Not sure what to put in this section. Lots of previous work!
