@@ -310,6 +310,26 @@ using assms proof(induction M arbitrary: \<pi> \<sigma>)
   next
 qed
 
+lemma ptrm_prm_unit_inaction:
+  assumes "a \<notin> ptrm_fvs X" "b \<notin> ptrm_fvs X"
+  shows "[a \<leftrightarrow> b] \<bullet> X \<approx> X"
+proof -
+  have "(\<And>x. x \<in> ds [a \<leftrightarrow> b] \<epsilon> \<Longrightarrow> x \<notin> ptrm_fvs X)"
+  proof -
+    fix x
+    assume "x \<in> ds [a \<leftrightarrow> b] \<epsilon>"
+    hence "[a \<leftrightarrow> b] $ x \<noteq> \<epsilon> $ x"
+      unfolding prm_disagreement_def
+      by auto
+    hence "x = a \<or> x = b"
+      using prm_apply_id prm_unit_inaction by metis
+    thus "x \<notin> ptrm_fvs X" using assms by auto
+  qed
+  hence "[a \<leftrightarrow> b] \<bullet> X \<approx> \<epsilon> \<bullet> X"
+    using ptrm_prm_agreement_equiv by metis
+  thus ?thesis using ptrm_prm_apply_id by metis
+qed
+
 lemma ptrm_alpha_equiv_reflexive:
   shows "M \<approx> M"
 by(induction M, auto simp add: ptrm_alpha_equiv.intros)

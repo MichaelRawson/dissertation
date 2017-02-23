@@ -121,6 +121,11 @@ lemma trm_prm_apply_id:
   shows "\<epsilon> \<cdot> M = M"
 by(transfer', auto simp add: ptrm_prm_apply_id)
 
+lemma trm_prm_unit_inaction:
+  assumes "a \<notin> fvs X" "b \<notin> fvs X"
+  shows "[a \<leftrightarrow> b] \<cdot> X = X"
+using assms by(transfer', metis ptrm_prm_unit_inaction)
+ 
 lemma trm_prm_agreement_equiv:
   assumes "\<And>a. a \<in> ds \<pi> \<sigma> \<Longrightarrow> a \<notin> fvs M"
   shows "\<pi> \<cdot> M = \<sigma> \<cdot> M"
@@ -570,6 +575,49 @@ inductive substitutes :: "'a trm \<Rightarrow> 'a \<Rightarrow> 'a trm \<Rightar
 | app:  "\<lbrakk>substitutes A x M A'; substitutes B x M B'\<rbrakk> \<Longrightarrow> substitutes (App A B) x M (App A' B')"
 | fn:   "\<lbrakk>x \<noteq> y; y \<notin> fvs M; substitutes A x M A'\<rbrakk> \<Longrightarrow> substitutes (Fn y T A) x M (Fn y T A')"
 
+lemma substitutes_prm:
+  assumes "substitutes A x M A'"
+  shows "substitutes (\<pi> \<cdot> A) (\<pi> $ x) (\<pi> \<cdot> M) (\<pi> \<cdot> A')"
+using assms proof(induction)
+  case (var1 x y M)
+    thus ?case using substitutes.var1 trm_prm_simp(1) by metis
+  next
+  case (var2 x y M)
+    thus ?case using substitutes.var2 trm_prm_simp(1) prm_apply_unequal by metis
+  next
+  case (app A x M A' B B')
+    thus ?case using substitutes.app trm_prm_simp(2) by metis
+  next
+  case (fn x y M A A' T)
+    thus ?case
+      using substitutes.fn trm_prm_simp(3) prm_apply_unequal prm_set_notmembership trm_prm_fvs
+      by metis
+  next
+qed
+
+lemma substitutes_fvs:
+  assumes "substitutes A x M A'"
+  shows "fvs A' \<subseteq> fvs A - {x} \<union> fvs M"
+using assms proof(induction)
+  case (var1 x y M)
+    thus ?case by auto
+  next
+  case (var2 x y M)
+    thus ?case
+      using fvs_simp(1) Un_subset_iff Un_upper2 insert_Diff_if insert_is_Un singletonD sup_commute
+      by metis
+  next
+  case (app A x M A' B B')
+    hence "fvs A' \<union> fvs B' \<subseteq> (fvs A - {x} \<union> fvs M) \<union> (fvs B - {x} \<union> fvs M)" by auto
+    hence "fvs A' \<union> fvs B' \<subseteq> (fvs A \<union> fvs B) - {x} \<union> fvs M" by auto
+    thus ?case using fvs_simp(2) by metis
+  next
+  case (fn x y M A A' T)
+    hence "fvs A' - {y} \<subseteq> fvs A - {y} - {x} \<union> fvs M" by auto
+    thus ?case using fvs_simp(3) by metis
+  next
+qed
+
 inductive_cases substitutes_varE': "substitutes (Var x) y M X"
 lemma substitutes_varE:
   assumes "substitutes (Var x) y M X"
@@ -598,17 +646,45 @@ by(
 
 inductive_cases substitutes_fnE': "substitutes (Fn y T A) x M X"
 lemma substitutes_fnE:
-  assumes "substitutes (Fn y T A) x M X"
-  shows "x \<noteq> y \<and> y \<notin> fvs M \<and> (\<exists>A'. substitutes A x M A' \<and> X = Fn y T A')"
-  apply (cases rule: substitutes_fnE'[where y=y and T=T and A=A and x=x and M=M and X=X])
-  apply (metis assms)
-  apply (metis var_not_fn)
-  apply (metis var_not_fn)
-  apply (metis app_not_fn)
-proof -
-  thm substitutes_fnE'
-  case (5 z B A' S)
-    thus ?thesis sorry
+  assumes "substitutes (Fn y T A) x M X" "y \<noteq> x" "y \<notin> fvs M"
+  shows "\<exists>A'. substitutes A x M A' \<and> X = Fn y T A'"
+using assms proof(
+  induction rule: substitutes_fnE'[where y=y and T=T and A=A and x=x and M=M and X=X],
+  metis assms(1),
+  metis var_not_fn,
+  metis var_not_fn,
+  metis app_not_fn
+)
+  case (5 z B B' S)
+    consider "y = z \<and> T = S \<and> A = B" | "y \<noteq> z \<and> T = S \<and> y \<notin> fvs B \<and> A = [y \<leftrightarrow> z] \<cdot> B"
+      using `Fn y T A = Fn z S B` trm_simp(4) by metis
+    thus ?case proof(cases)
+      case 1
+        thus ?thesis using 5 by metis
+      next
+      case 2
+        hence "y \<noteq> z" "T = S" "y \<notin> fvs B" "A = [y \<leftrightarrow> z] \<cdot> B" by auto
+        have "substitutes ([y \<leftrightarrow> z] \<cdot> B) ([y \<leftrightarrow> z] $ x) ([y \<leftrightarrow> z] \<cdot> M) ([y \<leftrightarrow> z] \<cdot> B')"
+          using substitutes_prm `substitutes B x M B'` by metis
+        hence "substitutes A ([y \<leftrightarrow> z] $ x) ([y \<leftrightarrow> z] \<cdot> M) ([y \<leftrightarrow> z] \<cdot> B')"
+          using `A = [y \<leftrightarrow> z] \<cdot> B` by metis
+        hence "substitutes A x ([y \<leftrightarrow> z] \<cdot> M) ([y \<leftrightarrow> z] \<cdot> B')"
+          using `y \<noteq> x` `x \<noteq> z` prm_unit_inaction by metis
+        hence *: "substitutes A x M ([y \<leftrightarrow> z] \<cdot> B')"
+          using `y \<notin> fvs M` `z \<notin> fvs M` trm_prm_unit_inaction by metis
+
+        have "y \<notin> fvs B'"
+          using
+            substitutes_fvs `substitutes B x M B'` `y \<notin> fvs B` `y \<notin> fvs M`
+            Diff_subset UnE set_rev_mp
+          by blast
+        hence "X = Fn y T ([y \<leftrightarrow> z] \<cdot> B')"
+          using `X = Fn z S B'` `y \<noteq> z` `T = S` fn_eq
+          by metis
+
+        thus ?thesis using * by auto
+      next
+    qed      
   next
 qed
 
@@ -664,7 +740,10 @@ qed
 lemma substitutes_unique:
   assumes "substitutes A x M B" "substitutes A x M C"
   shows "B = C"
-using assms proof(induction A arbitrary: B C rule: trm_induct)
+using assms proof(induction A arbitrary: B C rule: trm_strong_induct[where S="{x} \<union> fvs M"])
+  show "finite ({x} \<union> fvs M)" using fvs_finite by auto
+  next
+
   case (1 y)
     thus ?case using substitutes_varE by metis
   next
@@ -672,7 +751,8 @@ using assms proof(induction A arbitrary: B C rule: trm_induct)
     thus ?case using substitutes_appE by metis
   next
   case (3 y T A)
-    thus ?case using substitutes_fnE by metis
+    hence "y \<noteq> x" and "y \<notin> fvs M" by auto
+    thus ?case using 3 substitutes_fnE by metis
   next
 qed
 
@@ -728,89 +808,13 @@ unfolding subst_def proof
   thus "X = Fn y T (THE X. substitutes A x M X)" using substitutes_function * by metis
 qed
 
-lemma subst_fvs:
-  shows "fvs (M[z ::= N]) \<subseteq> (fvs M - {z}) \<union> fvs N"
-proof(induction M rule: trm_strong_induct[where S="{z} \<union> fvs N"])
-  show "finite ({z} \<union> fvs N)" using fvs_finite by auto
-  next
-
-  case (1 x)
-    thus ?case
-      using subst_simp_var1 subst_simp_var2
-      by(cases "x = z", auto simp add: fvs_simp)
-  next
-  case (2 A B)
-    hence "fvs (A[z ::= N]) \<union> fvs (B[z ::= N]) \<subseteq> fvs A \<union> fvs B - {z} \<union> fvs N"
-      by auto
-    hence "fvs (App (A[z ::= N]) (B[z ::= N])) \<subseteq> fvs (App A B) - {z} \<union> fvs N"
-      using fvs_simp(2) by metis
-    thus ?case using subst_simp_app by metis
-  next
-  case (3 x T A)
-    hence "x \<noteq> z" "x \<notin> fvs N" by auto
-    from "3.IH" have "(fvs (A[z ::= N]) - {x}) \<subseteq> (fvs A - {x}) - {z} \<union> fvs N" by auto
-    hence "fvs (Fn x T (A[z ::= N])) \<subseteq> fvs (Fn x T A) - {z} \<union> fvs N" using fvs_simp(3) by metis
-    thus ?case using subst_simp_fn `x \<noteq> z` `x \<notin> fvs N` by metis
-  next
-qed
-
 lemma subst_prm:
   shows "(\<pi> \<cdot> (M[z ::= N])) = ((\<pi> \<cdot> M)[\<pi> $ z ::= \<pi> \<cdot> N])"
-proof(induction M rule: trm_strong_induct[where S="{z} \<union> fvs N"])
-  show "finite ({z} \<union> fvs N)" using fvs_finite by auto
-  next
+unfolding subst_def using substitutes_prm substitutes_function the1_equality by (metis (full_types))
 
-  case (1 x)
-    consider "x = z" | "x \<noteq> z" by auto
-    thus ?case proof(cases)
-      case 1
-        hence
-          "(\<pi> \<cdot> ((Var x)[z ::= N])) = \<pi> \<cdot> N"
-          "((\<pi> \<cdot> (Var x))[\<pi> $ z ::= \<pi> \<cdot> N]) = \<pi> \<cdot> N"
-          using subst_simp_var1 by (metis, metis trm_prm_simp(1))
-        thus ?thesis by auto
-      next
-      case 2
-        hence "\<pi> $ x \<noteq> \<pi> $ z" using prm_apply_unequal by metis
-        hence
-          "(\<pi> \<cdot> ((Var x)[z ::= N])) = Var (\<pi> $ x)"
-          "((\<pi> \<cdot> (Var x))[\<pi> $ z ::= \<pi> \<cdot> N]) = Var (\<pi> $ x)"
-          using subst_simp_var2 trm_prm_simp(1) `x \<noteq> z` by metis+
-        thus ?thesis by auto
-      next
-    qed
-  next
-  case (2 A B)
-    thus ?case using subst_simp_app trm_prm_simp(2) by metis
-  next
-  case (3 x T A)
-    hence "x \<noteq> z" "x \<notin> fvs N" by auto
-
-    have 1: "(\<pi> \<cdot> ((Fn x T A)[z ::= N])) = Fn (\<pi> $ x) T ((\<pi> \<cdot> A)[\<pi> $ z ::= \<pi> \<cdot> N])"
-    proof -
-      have "(\<pi> \<cdot> ((Fn x T A)[z ::= N])) = \<pi> \<cdot> (Fn x T (A[z ::= N]))"
-        using subst_simp_fn `x \<noteq> z` `x \<notin> fvs N` by metis
-      also have "... = Fn (\<pi> $ x) T (\<pi> \<cdot> (A[z ::= N]))"
-        using trm_prm_simp(3) by metis
-      also have "... = Fn (\<pi> $ x) T ((\<pi> \<cdot> A)[\<pi> $ z ::= \<pi> \<cdot> N])"
-        using "3.IH" by metis
-      finally show ?thesis.
-    qed
-
-    have 2: "(\<pi> \<cdot> (Fn x T A))[\<pi> $ z ::= \<pi> \<cdot> N] = Fn (\<pi> $ x) T ((\<pi> \<cdot> A)[\<pi> $ z ::= \<pi> \<cdot> N])"
-    proof -
-      have "\<pi> $ x \<noteq> \<pi> $ z" using prm_apply_unequal `x \<noteq> z` by metis
-      have "\<pi> $ x \<notin> fvs (\<pi> \<cdot> N)" using `x \<notin> fvs N` using trm_prm_fvs prm_set_notmembership by metis
-
-      have "((\<pi> \<cdot> (Fn x T A))[\<pi> $ z ::= \<pi> \<cdot> N]) = ((Fn (\<pi> $ x) T (\<pi> \<cdot> A))[\<pi> $ z ::= \<pi> \<cdot> N])"
-        using trm_prm_simp(3) by metis
-      also have "... = Fn (\<pi> $ x) T ((\<pi> \<cdot> A)[\<pi> $ z ::= \<pi> \<cdot> N])"
-        using subst_simp_fn `\<pi> $ x \<noteq> \<pi> $ z` `\<pi> $ x \<notin> fvs (\<pi> \<cdot> N)` by metis
-      finally show ?thesis.
-    qed
-    from 1 and 2 show ?case by auto
-  next
-qed
+lemma subst_fvs:
+  shows "fvs (M[z ::= N]) \<subseteq> (fvs M - {z}) \<union> fvs N"
+unfolding subst_def using substitutes_fvs substitutes_function theI2 by metis
 
 lemma typing_subst:
   assumes "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> M : \<sigma>" "\<Gamma> \<turnstile> N : \<tau>"
@@ -1185,9 +1189,42 @@ using assms proof(induction X rule: trm_strong_induct[where S="{z} \<union> fvs 
 qed
 
 lemma substitution_outer':
-  assumes "A \<rightarrow>\<beta> A'"
-  shows "(A[z ::= M]) \<rightarrow>\<beta> (A'[z ::= M])"
-sorry
+  assumes "X \<rightarrow>\<beta> X'"
+  shows "(X[z ::= M]) \<rightarrow>\<beta> (X'[z ::= M])"
+using assms proof(induction X arbitrary: X' rule: trm_strong_induct[where S="{z} \<union> fvs M"])
+  show "finite ({z} \<union> fvs M)" using fvs_finite by auto
+  next
+
+  case (1 x)
+    thus ?case using beta_reduction_left_varE by metis
+  next
+  case (3 x T B)
+    hence "x \<noteq> z" and "x \<notin> fvs M" by auto
+    from `(Fn x T B) \<rightarrow>\<beta> X'` obtain B' where "B \<rightarrow>\<beta> B'" "X' = Fn x T B'"
+      using beta_reduction_left_fnE by metis
+    thus ?case using "3.IH" beta_reduction.fn `x \<noteq> z` `x \<notin> fvs M` subst_simp_fn by auto
+  next
+  case (2 A B)
+    from `(App A B) \<rightarrow>\<beta> X'` and beta_reduction_left_appE consider
+      "\<exists>x T A'. A = Fn x T A' \<and> X' = (A'[x ::= B])"
+    | "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> X' = App A' B"
+    | "\<exists>B'. (B \<rightarrow>\<beta> B') \<and> X' = App A B'" by metis
+    thus ?case proof(cases)
+      case 2
+        from this obtain A' where "A \<rightarrow>\<beta> A'" "X' = App A' B" by auto
+        thus ?thesis using subst_simp_app "2.IH" beta_reduction.app1 by metis
+      next
+      case 3
+        from this obtain B' where "B \<rightarrow>\<beta> B'" "X' = App A B'" by auto
+        thus ?thesis using subst_simp_app "2.IH" beta_reduction.app2 by metis
+      next
+      case 1
+        from this obtain x T A' where "A = Fn x T A'" and "X' = (A'[x ::= B])" by auto
+        thus ?thesis sorry
+      next
+    qed
+  next
+qed
 
 lemma substitution_outer:
   assumes "A \<rightarrow>\<beta>\<^sup>* A'"
@@ -1199,6 +1236,342 @@ using assms proof(induction)
   case (transitive A A' A'')
     thus ?case using substitution_outer' beta_reduces.transitive by metis
   next
+qed
+
+inductive parallel_reduction :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ >> _") where
+  refl: "A >> A"
+| beta: "\<lbrakk>A >> A'; B >> B'\<rbrakk> \<Longrightarrow> (App (Fn x T A) B) >> (A'[x ::= B'])"
+| eta:  "A >> A' \<Longrightarrow> (Fn x T A) >> (Fn x T A')"
+| app:  "\<lbrakk>A >> A'; B >> B'\<rbrakk> \<Longrightarrow> (App A B) >> (App A' B')"
+
+inductive_cases parallel_reduction_varE': "(Var x) >> A"
+lemma parallel_reduction_varE:
+  assumes "(Var x) >> A"
+  shows "A = Var x"
+using assms by(
+  induction rule: parallel_reduction_varE'[where x=x and A=A],
+  metis assms,
+  metis,
+  metis var_not_app,
+  metis var_not_fn,
+  metis var_not_app
+)
+
+inductive_cases parallel_reduction_redexE': "(App (Fn x T A) B) >> X"
+lemma parallel_reduction_redexE:
+  assumes "(App (Fn x T A) B) >> X"
+  shows "
+    (X = App (Fn x T A) B) \<or>
+    ((A >> A') \<and> (B >> B') \<and> X = (A'[x ::= B'])) \<or>
+    (((Fn x T A) >> (Fn x T A')) \<and> (B >> B') \<and> X = (App (Fn x T A') B'))
+  "
+sorry
+
+lemma parallel_reduction_fnE:
+  assumes "(Fn x T A) >> X"
+  shows "(A >> A') \<and> X = Fn x T A'"
+sorry
+
+lemma parallel_reduction_nonredexE:
+  assumes "(App A B) >> X" and "\<not>(\<exists>x T A'. A = Fn x T A')"
+  shows "A >> A' \<and> B >> B' \<and> X = (App A' B')"
+sorry
+
+lemma parallel_reduction_prm:
+  assumes "A >> A'"
+  shows "(\<pi> \<cdot> A) >> (\<pi> \<cdot> A')"
+using assms proof(induction)
+  case (refl A)
+    thus ?case using parallel_reduction.refl.
+  next
+  case (beta A A' B B' x T)
+    thus ?case using parallel_reduction.beta subst_prm trm_prm_simp(2, 3) by metis
+  next
+  case (eta A A' x T)
+    thus ?case using parallel_reduction.eta trm_prm_simp(3) by metis
+  next
+  case (app A A' B B')
+    thus ?case using parallel_reduction.app trm_prm_simp(2) by metis
+  next
+qed
+
+lemma parallel_reduction_fvs:
+  assumes "A >> A'"
+  shows "fvs A' \<subseteq> fvs A"
+using assms proof(induction)
+  case (refl A)
+    thus ?case by auto
+  next
+  case (beta A A' B B' x T)
+    have *:"fvs (App (Fn x T A) B) = fvs A - {x} \<union> fvs B" using fvs_simp(2, 3) by metis
+    have "fvs (A'[x ::= B']) \<subseteq> fvs A' - {x} \<union> fvs B'" using subst_fvs.
+    also have "... \<subseteq> fvs A - {x} \<union> fvs B" using beta.IH by auto
+    finally show ?case using fvs_simp(2, 3) by metis
+  next
+  case (eta A A' x T)
+    thus ?case using fvs_simp(3) Un_Diff subset_Un_eq by metis
+  next
+  case (app A A' B B')
+    thus ?case using fvs_simp(2) Un_mono by metis
+  next
+qed
+
+inductive complete_development :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ >>> _") where
+  var:  "(Var x) >>> (Var x)"
+| beta: "\<lbrakk>A >>> A'; B >>> B'\<rbrakk> \<Longrightarrow> (App (Fn x T A) B) >>> (A'[x ::= B'])"
+| eta:  "A >>> A' \<Longrightarrow> (Fn x T A) >>> (Fn x T A')"
+| app:  "\<lbrakk>A >>> A'; B >>> B'; \<not>(\<exists>x T M. A = Fn x T M)\<rbrakk> \<Longrightarrow> (App A B) >>> (App A' B')"
+
+lemma not_fn_prm:
+  assumes "\<not>(\<exists>x T M. A = Fn x T M)"
+  shows "\<not>(\<exists>x T M. \<pi> \<cdot> A = Fn x T M)"
+proof(rule classical)
+  assume "\<not>\<not>(\<exists>x T M. \<pi> \<cdot> A = Fn x T M)"
+  hence "\<exists>x T M. \<pi> \<cdot> A = Fn x T M" by blast
+  hence "\<exists>x T M. (prm_inv \<pi>) \<cdot> (\<pi> \<cdot> A) = (prm_inv \<pi>) \<cdot> Fn x T M" by fastforce
+  hence "\<exists>x T M. (prm_inv \<pi> \<diamondop> \<pi>) \<cdot> A = (prm_inv \<pi>) \<cdot> Fn x T M"
+    using trm_prm_apply_compose by metis
+  hence "\<exists>x T M. A = (prm_inv \<pi>) \<cdot> Fn x T M"
+    using prm_inv_compose trm_prm_apply_id by metis
+  hence "\<exists>x T M. A = Fn ((prm_inv \<pi>) $ x) T ((prm_inv \<pi>) \<cdot> M)"
+    using trm_prm_simp(3) by metis
+  hence "\<exists>x T M. A = Fn x T M" by blast
+  hence False using assms by blast
+  thus ?thesis by blast
+qed
+
+lemma complete_development_prm:
+  assumes "A >>> A'"
+  shows "(\<pi> \<cdot> A) >>> (\<pi> \<cdot> A')"
+using assms proof(induction)
+  case (var x)
+    thus ?case using complete_development.var trm_prm_simp(1) by metis
+  next
+  case (beta A A' B B' x T)
+    thus ?case using complete_development.beta subst_prm trm_prm_simp(2, 3) by metis
+  next
+  case (eta A A' x T)
+    thus ?case using complete_development.eta trm_prm_simp(3) by metis
+  next
+  case (app A A' B B')
+    thus ?case using complete_development.app trm_prm_simp(2) not_fn_prm by metis
+  next
+qed
+
+lemma complete_development_fvs:
+  assumes "A >>> A'"
+  shows "fvs A' \<subseteq> fvs A"
+using assms proof(induction)
+  case (var x)
+    thus ?case using fvs_simp by auto
+  next
+  case (beta A A' B B' x T)
+    have "fvs (A'[x ::= B']) \<subseteq> fvs A' - {x} \<union> fvs B'" using subst_fvs.
+    also have "... \<subseteq> fvs A - {x} \<union> fvs B" using beta.IH by auto
+    also have "... \<subseteq> fvs (Fn x T A) \<union> fvs B" using fvs_simp(3) subset_refl by force
+    also have "... \<subseteq> fvs (App (Fn x T A) B)" using fvs_simp(2) subset_refl by force
+    finally show ?case.
+  next
+  case (eta A A' x T)
+    thus ?case using fvs_simp(3) using Un_Diff subset_Un_eq by (metis (no_types, lifting))
+  next
+  case (app A A' B B')
+    thus ?case using fvs_simp(2) Un_mono by metis
+  next
+qed
+
+lemma complete_development_fnE:
+  assumes "(Fn x T A) >>> X"
+  shows "\<exists>A'. (A >>> A') \<and> X = Fn x T A'"
+using assms proof(cases, metis var_not_fn, metis app_not_fn)
+  case (eta B B' y S)
+    hence "T = S" using trm_simp(4) by metis
+    from eta consider "x = y \<and> A = B" | "x \<noteq> y \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
+      using trm_simp(4) by metis
+    thus ?thesis proof(cases)
+      case 1
+        hence "x = y" and "A = B" by auto
+        obtain A' where "A' = B'" by auto
+        hence "A >>> A'" and "X = Fn x T A'" using eta `A = B` `x = y` `T = S` by auto
+        thus ?thesis by auto
+      next
+      case 2
+        hence "x \<noteq> y" "x \<notin> fvs B" and A: "A = [x \<leftrightarrow> y] \<cdot> B" by auto
+        hence "x \<notin> fvs B'" using `B >>> B'` complete_development_fvs by auto
+        obtain A' where A': "A' = [x \<leftrightarrow> y] \<cdot> B'" by auto
+        hence "A >>> A'" using A `B >>> B'` complete_development_prm by auto
+        have "X = Fn x T A'"
+          using fn_eq `x \<noteq> y` `x \<notin> fvs B'` A' `X = Fn y S B'` `T = S` by metis
+        thus ?thesis using `A >>> A'` by auto
+      next
+    qed
+  next
+  case (app A A' B B')
+    thus ?thesis using app_not_fn by metis
+  next
+qed
+
+lemma complete_development_exists:
+  shows "\<exists>X. (A >>> X)"
+proof(induction A rule: trm_induct)
+  case (1 x)
+    obtain X where "X = Var x" by auto
+    hence "(Var x) >>> X" using complete_development.var by metis
+    thus ?case by auto
+  next
+  case (2 A B)
+    from this obtain A' B' where A': "A >>> A'" and B': "B >>> B'" by auto
+    consider "(\<exists>x T M. A = Fn x T M)" | "\<not>(\<exists>x T M. A = Fn x T M)" by auto
+    thus ?case proof(cases)
+      case 1
+        from this obtain x T M where A: "A = Fn x T M" by auto
+        from this obtain M' where "A' = Fn x T M'" and "M >>> M'"
+          using complete_development_fnE A' by metis
+        obtain X where "X = (M'[x ::= B'])" by auto
+        hence "(App A B) >>> X"
+          using complete_development.beta `M >>> M'` B' A by metis
+        thus ?thesis by auto
+      next
+      case 2
+        thus ?thesis using complete_development.app A' B' by metis
+      next
+    qed
+  next
+  case (3 x T A)
+    from this obtain A' where A': "A >>> A'" by auto
+    obtain X where "X = Fn x T A'" by auto
+    hence "(Fn x T A) >>> X" using complete_development.eta A' by metis
+    thus ?case by auto
+  next
+qed
+
+lemma complete_development_triangle:
+  assumes "A >>> D" "A >> B"
+  shows "B >> D"
+using assms proof(induction arbitrary: B rule: complete_development.induct)
+  case (var x)
+    thus ?case using parallel_reduction_varE parallel_reduction.refl by metis
+  next
+  case (beta A A' C C' x T)
+    hence "A >> A'" "C >> C'" using parallel_reduction.refl by metis+
+    from `(App (Fn x T A) C) >> B` consider
+        "B = App (Fn x T A) C"
+      | "B = (A'[x ::= C'])"
+      | "B = (App (Fn x T A') C')"
+      using parallel_reduction_redexE by metis
+    thus ?case proof(cases)
+      case 1
+        thus ?thesis using parallel_reduction.beta `A >> A'` `C >> C'` by metis
+      next
+      case 2
+        thus ?thesis using parallel_reduction.refl by metis
+      next
+      case 3
+        thus ?thesis using parallel_reduction.beta parallel_reduction.refl by metis
+      next
+    qed
+  next
+  case (eta A A' x T B)
+    thus ?case using parallel_reduction_fnE parallel_reduction.refl by metis
+  next
+  case (app A A' C C')
+    thus ?case using parallel_reduction_nonredexE parallel_reduction.refl by metis
+  next
+qed
+
+lemma parallel_reduction_diamond:
+  assumes "A >> B" "A >> C"
+  shows "\<exists>D. (B >> D) \<and> (C >> D)"
+proof -
+  obtain D where "A >>> D" using complete_development_exists by metis
+  hence "(B >> D) \<and> (C >> D)" using complete_development_triangle assms by auto
+  thus ?thesis by blast
+qed
+
+inductive parallel_reduces :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ >>\<^sup>* _") where
+  reflexive: "A >>\<^sup>* A"
+| transitive: "\<lbrakk>A >>\<^sup>* A'; A' >> A''\<rbrakk> \<Longrightarrow> A >>\<^sup>* A''"
+
+lemma parallel_reduces_diamond:
+  assumes "A >>\<^sup>* B" "A >>\<^sup>* C"
+  shows "\<exists>D. (B >>\<^sup>* D) \<and> (C >>\<^sup>* D)"
+sorry
+
+lemma beta_reduction_is_parallel_reduction:
+  assumes "A \<rightarrow>\<beta> B"
+  shows "A >> B"
+using assms proof(induction)
+  case (beta x T A M)
+    thus ?case using parallel_reduction.beta parallel_reduction.refl by metis
+  next
+  case (app1 A A' B)
+    thus ?case using parallel_reduction.app parallel_reduction.refl by metis
+  next
+  case (app2 A A' B)
+    thus ?case using parallel_reduction.app parallel_reduction.refl by metis
+  next
+  case (fn A A' x T)
+    thus ?case using parallel_reduction.eta by metis
+  next
+qed
+
+lemma parallel_reduction_is_beta_reduction:
+  assumes "A >> B"
+  shows "A \<rightarrow>\<beta>\<^sup>* B"
+using assms proof(induction)
+  case (refl A)
+    thus ?case using beta_reduces.reflexive.
+  next
+  case (beta A A' B B' x T)
+    hence "(App (Fn x T A) B) \<rightarrow>\<beta>\<^sup>* (App (Fn x T A') B')"
+      using `A \<rightarrow>\<beta>\<^sup>* A'`
+      beta_reduces_fn beta_reduces_app_left beta_reduces_app_right beta_reduces_composition
+      by metis
+    moreover have "(App (Fn x T A') B') \<rightarrow>\<beta> (A'[x ::= B'])"
+      using beta_reduction.beta.
+    ultimately show ?case using beta_reduces.transitive by metis
+  next
+  case (eta A A' x T)
+    thus ?case using beta_reduces_fn by metis
+  next
+  case (app A A' B B')
+    thus ?case using beta_reduces_app_left beta_reduces_app_right beta_reduces_composition by metis
+  next
+qed
+
+lemma parallel_beta_reduces_equivalent:
+  shows "(A >>\<^sup>* B) = (A \<rightarrow>\<beta>\<^sup>* B)"
+proof -
+  have \<Rightarrow>: "(A >>\<^sup>* B) \<Longrightarrow> (A \<rightarrow>\<beta>\<^sup>* B)"
+  proof(induction rule: parallel_reduces.induct)
+    case (reflexive A)
+      thus ?case using beta_reduces.reflexive.
+    next
+    case (transitive A A' A'')
+      thus ?case using beta_reduces_composition parallel_reduction_is_beta_reduction by metis
+    next
+  qed
+
+  have \<Leftarrow>: "(A \<rightarrow>\<beta>\<^sup>* B) \<Longrightarrow> (A >>\<^sup>* B)"
+  proof(induction rule: beta_reduces.induct)
+    case (reflexive A)
+      thus ?case using parallel_reduces.reflexive.
+    next
+    case (transitive A A' A'')
+      thus ?case using parallel_reduces.transitive beta_reduction_is_parallel_reduction by metis
+    next
+  qed
+
+  from \<Leftarrow>\<Rightarrow> show "(A >>\<^sup>* B) = (A \<rightarrow>\<beta>\<^sup>* B)" by blast
+qed
+
+theorem confluence:
+  assumes "A \<rightarrow>\<beta>\<^sup>* B" "A \<rightarrow>\<beta>\<^sup>* C"
+  shows "\<exists>D. (B \<rightarrow>\<beta>\<^sup>* D) \<and> (C \<rightarrow>\<beta>\<^sup>* D)"
+proof -
+  from assms have "A >>\<^sup>* B" "A >>\<^sup>* C" using parallel_beta_reduces_equivalent by metis+
+  hence "\<exists>D. (B >>\<^sup>* D) \<and> (C >>\<^sup>* D)" using parallel_reduces_diamond by metis
+  thus "\<exists>D. (B \<rightarrow>\<beta>\<^sup>* D) \<and> (C \<rightarrow>\<beta>\<^sup>* D)" using parallel_beta_reduces_equivalent by metis
 qed
 
 end

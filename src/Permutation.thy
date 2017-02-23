@@ -23,6 +23,9 @@ definition preprm_unit :: "'a \<Rightarrow> 'a \<Rightarrow> 'a preprm" where
 definition preprm_ext :: "'a preprm \<Rightarrow> 'a preprm \<Rightarrow> bool" (infix "=p" 100) where
   "\<pi> =p \<sigma> \<equiv> \<forall>x. preprm_apply \<pi> x = preprm_apply \<sigma> x"
 
+definition preprm_inv :: "'a preprm \<Rightarrow> 'a preprm" where
+  "preprm_inv \<pi> \<equiv> rev \<pi>"
+
 lemma swp_apply_unequal:
   assumes "x \<noteq> y"
   shows "swp_apply s x \<noteq> swp_apply s y"
@@ -126,10 +129,20 @@ lemma preprm_unit_commutes:
 unfolding preprm_ext_def preprm_unit_def
 by simp
 
+lemma preprm_singleton_involution:
+  shows "preprm_compose [s] [s] =p preprm_id"
+unfolding preprm_ext_def preprm_compose_def preprm_unit_def preprm_id_def
+proof -
+  obtain s1 s2 where "s1 = fst s" "s2 = snd s" by auto
+  hence "s = (s1, s2)" by simp
+  thus "\<forall>x. preprm_apply ([s] @ [s]) x = preprm_apply [] x"
+    by simp
+qed
+
 lemma preprm_unit_involution:
   shows "preprm_compose (preprm_unit a b) (preprm_unit a b) =p preprm_id"
-unfolding preprm_ext_def preprm_compose_def preprm_unit_def preprm_id_def
-by simp
+unfolding preprm_unit_def
+using preprm_singleton_involution.
 
 lemma preprm_apply_id:
   shows "preprm_apply preprm_id x = x"
@@ -190,6 +203,78 @@ lemma preprm_compose_push:
 unfolding preprm_ext_def preprm_unit_def
 by (simp add: inj_eq preprm_apply_composition preprm_apply_injective)
 
+lemma preprm_ext_compose_left:
+  assumes "P =p S"
+  shows "preprm_compose \<pi> P =p preprm_compose \<pi> S"
+using assms unfolding preprm_ext_def
+using preprm_apply_composition by metis
+
+lemma preprm_ext_compose_right:
+  assumes "P =p S"
+  shows "preprm_compose P \<pi> =p preprm_compose S \<pi>"
+using assms unfolding preprm_ext_def
+using preprm_apply_composition by metis
+
+lemma preprm_ext_uncompose:
+  assumes "\<pi> =p \<sigma>" "preprm_compose \<pi> P =p preprm_compose \<sigma> S"
+  shows "P =p S"
+using assms unfolding preprm_ext_def
+proof -
+  assume *: "\<forall>x. preprm_apply \<pi> x = preprm_apply \<sigma> x"
+
+  assume "\<forall>x. preprm_apply (preprm_compose \<pi> P) x = preprm_apply (preprm_compose \<sigma> S) x"
+  hence "\<forall>x. preprm_apply \<pi> (preprm_apply P x) = preprm_apply \<sigma> (preprm_apply S x)"
+    using preprm_apply_composition by metis
+  hence "\<forall>x. preprm_apply \<pi> (preprm_apply P x) = preprm_apply \<pi> (preprm_apply S x)"
+    using * by metis
+  thus "\<forall>x. preprm_apply P x = preprm_apply S x"
+    using preprm_apply_injective unfolding inj_on_def by fastforce
+qed
+
+lemma preprm_inv_compose:
+  shows "preprm_compose (preprm_inv \<pi>) \<pi> =p preprm_id"
+unfolding preprm_inv_def
+proof(induction \<pi>, simp add: preprm_ext_def preprm_id_def preprm_compose_def)
+  case (Cons p ps)
+    hence IH: "(preprm_compose (rev ps) ps) =p preprm_id" by auto
+
+    obtain p1 p2 where "p1 = fst p" "p2 = snd p" by auto
+    hence "p = (p1, p2)" by simp
+ 
+    have "(preprm_compose (rev (p # ps)) (p # ps)) =p (preprm_compose (rev ps) (preprm_compose (preprm_compose [p] [p]) ps))"
+      unfolding preprm_compose_def using preprm_ext_reflexive by simp
+    moreover have "... =p (preprm_compose (rev ps) (preprm_compose preprm_id ps)) "
+      using preprm_singleton_involution preprm_ext_compose_left preprm_ext_compose_right by metis
+    moreover have "... =p (preprm_compose (rev ps) ps)"
+      unfolding preprm_compose_def preprm_id_def using preprm_ext_reflexive by simp
+    moreover have "... =p preprm_id" using IH.
+    ultimately show ?case using preprm_ext_transitive by metis
+  next
+qed
+
+lemma preprm_inv_involution:
+  shows "preprm_inv (preprm_inv \<pi>) = \<pi>"
+unfolding preprm_inv_def by simp
+
+lemma preprm_inv_ext:
+  assumes "\<pi> =p \<sigma>"
+  shows "preprm_inv \<pi> =p preprm_inv \<sigma>"
+proof -
+  thm preprm_inv_compose
+  have
+    "(preprm_compose (preprm_inv (preprm_inv \<pi>)) (preprm_inv \<pi>)) =p preprm_id"
+    "(preprm_compose (preprm_inv (preprm_inv \<sigma>)) (preprm_inv \<sigma>)) =p preprm_id"
+    using preprm_inv_compose by metis+
+  hence
+    "(preprm_compose \<pi> (preprm_inv \<pi>)) =p preprm_id"
+    "(preprm_compose \<sigma> (preprm_inv \<sigma>)) =p preprm_id"
+    using preprm_inv_involution by metis+
+  hence "(preprm_compose \<pi> (preprm_inv \<pi>)) =p (preprm_compose \<sigma> (preprm_inv \<sigma>))"
+    using preprm_ext_transitive preprm_ext_symmetric by metis
+  thus "preprm_inv \<pi> =p preprm_inv \<sigma>"
+    using preprm_ext_uncompose assms by metis
+qed
+
 quotient_type 'a prm = "'a preprm" / preprm_ext
 proof(rule equivpI)
   show "reflp preprm_ext" using preprm_ext_reflp.
@@ -208,6 +293,9 @@ unfolding preprm_ext_def
 by(simp only: preprm_apply_composition, simp)
 
 lift_definition prm_unit :: "'a \<Rightarrow> 'a \<Rightarrow> 'a prm" ("[_ \<leftrightarrow> _]") is preprm_unit.
+
+lift_definition prm_inv :: "'a prm \<Rightarrow> 'a prm" is preprm_inv
+using preprm_inv_ext.
 
 lemma prm_apply_composition:
   fixes f g :: "'a prm" and x :: 'a
@@ -255,6 +343,10 @@ by(transfer, metis preprm_apply_id)
 lemma prm_apply_injective:
   shows "inj (prm_apply \<pi>)"
 by(transfer, metis preprm_apply_injective)
+
+lemma prm_inv_compose:
+  shows "(prm_inv \<pi>) \<diamondop> \<pi> = \<epsilon>"
+by(transfer, metis preprm_inv_compose)
 
 definition prm_set :: "'a prm \<Rightarrow> 'a set \<Rightarrow> 'a set" (infix "{$}" 140) where
   "prm_set \<pi> S \<equiv> image (prm_apply \<pi>) S"
