@@ -5,33 +5,55 @@ begin
 type_synonym tvar = nat
 
 datatype type =
-  TVar tvar
+  TUnit
+| TVar tvar
 | TArr type type
+| TPair type type
 
 datatype 'a ptrm =
-  PVar 'a
+  PUnit
+| PVar 'a
 | PApp "'a ptrm" "'a ptrm"
 | PFn 'a type "'a ptrm"
+| PPair "'a ptrm" "'a ptrm"
+| PFst "'a ptrm"
+| PSnd "'a ptrm"
 
 fun ptrm_fvs :: "'a ptrm \<Rightarrow> 'a set" where
-  "ptrm_fvs (PVar x) = {x}"
+  "ptrm_fvs PUnit = {}"
+| "ptrm_fvs (PVar x) = {x}"
 | "ptrm_fvs (PApp A B) = ptrm_fvs A \<union> ptrm_fvs B"
 | "ptrm_fvs (PFn x _ A) = ptrm_fvs A - {x}"
+| "ptrm_fvs (PPair A B) = ptrm_fvs A \<union> ptrm_fvs B"
+| "ptrm_fvs (PFst P) = ptrm_fvs P"
+| "ptrm_fvs (PSnd P) = ptrm_fvs P"
 
 fun ptrm_apply_prm :: "'a prm \<Rightarrow> 'a ptrm \<Rightarrow> 'a ptrm" (infixr "\<bullet>" 150) where
-  "ptrm_apply_prm \<pi> (PVar x) = PVar (\<pi> $ x)"
+  "ptrm_apply_prm \<pi> PUnit = PUnit"
+| "ptrm_apply_prm \<pi> (PVar x) = PVar (\<pi> $ x)"
 | "ptrm_apply_prm \<pi> (PApp A B) = PApp (ptrm_apply_prm \<pi> A) (ptrm_apply_prm \<pi> B)"
 | "ptrm_apply_prm \<pi> (PFn x T A) = PFn (\<pi> $ x) T (ptrm_apply_prm \<pi> A)"
+| "ptrm_apply_prm \<pi> (PPair A B) = PPair (ptrm_apply_prm \<pi> A) (ptrm_apply_prm \<pi> B)"
+| "ptrm_apply_prm \<pi> (PFst P) = PFst (ptrm_apply_prm \<pi> P)"
+| "ptrm_apply_prm \<pi> (PSnd P) = PSnd (ptrm_apply_prm \<pi> P)"
 
 inductive ptrm_alpha_equiv :: "'a ptrm \<Rightarrow> 'a ptrm \<Rightarrow> bool" (infix "\<approx>" 100) where
-  var:        "(PVar x) \<approx> (PVar x)"
+  unit:       "PUnit \<approx> PUnit"
+| var:        "(PVar x) \<approx> (PVar x)"
 | app:        "\<lbrakk>A \<approx> B; C \<approx> D\<rbrakk> \<Longrightarrow> (PApp A C) \<approx> (PApp B D)"
 | fn1:        "A \<approx> B \<Longrightarrow> (PFn x T A) \<approx> (PFn x T B)"
 | fn2:        "\<lbrakk>a \<noteq> b; A \<approx> [a \<leftrightarrow> b] \<bullet> B; a \<notin> ptrm_fvs B\<rbrakk> \<Longrightarrow> (PFn a T A) \<approx> (PFn b T B)"
+| pair:       "\<lbrakk>A \<approx> B; C \<approx> D\<rbrakk> \<Longrightarrow> (PPair A C) \<approx> (PPair B D)"
+| fst:        "A \<approx> B \<Longrightarrow> PFst A \<approx> PFst B"
+| snd:        "A \<approx> B \<Longrightarrow> PSnd A \<approx> PSnd B"
 
-inductive_cases varE: "PVar x \<approx> Y"
-inductive_cases appE: "PApp A B \<approx> Y"
-inductive_cases fnE:  "PFn x T A \<approx> Y"
+inductive_cases unitE: "PUnit \<approx> Y"
+inductive_cases varE:  "PVar x \<approx> Y"
+inductive_cases appE:  "PApp A B \<approx> Y"
+inductive_cases fnE:   "PFn x T A \<approx> Y"
+inductive_cases pairE: "PPair A B \<approx> Y"
+inductive_cases fstE:  "PFst P \<approx> Y"
+inductive_cases sndE:  "PSnd P \<approx> Y"
 
 lemma ptrm_prm_apply_id:
   shows "\<epsilon> \<bullet> X = X"
@@ -48,7 +70,12 @@ by(induction X, auto)
 lemma ptrm_size_alpha_equiv:
   assumes "X \<approx> Y"
   shows "size X = size Y"
-using assms proof(induction rule: ptrm_alpha_equiv.induct, simp, simp, simp)
+using assms
+  apply (induction rule: ptrm_alpha_equiv.induct)
+  apply (simp, simp, simp, simp)
+  defer
+  apply (simp, simp, simp)
+proof -
   case (fn2 a b A B T)
     hence "size A = size B" using ptrm_size_prm by metis
     thus ?case by auto
@@ -62,6 +89,9 @@ by(induction X, auto)
 lemma ptrm_prm_fvs:
   shows "ptrm_fvs (\<pi> \<bullet> X) = \<pi> {$} ptrm_fvs X"
 proof(induction X)
+  case (PUnit)
+    thus ?case unfolding prm_set_def by simp
+  next
   case (PVar x)
     have "ptrm_fvs (\<pi> \<bullet> PVar x) = ptrm_fvs (PVar (\<pi> $ x))" by simp
     moreover have "... = {\<pi> $ x}" by simp
@@ -86,12 +116,27 @@ proof(induction X)
     moreover have "... = \<pi> {$} ptrm_fvs (PFn x T A)" by simp
     ultimately show ?case by metis
   next
+  case (PPair A B)
+    thus ?case
+      using prm_set_distributes_union ptrm_apply_prm.simps(5) ptrm_fvs.simps(5)
+      by fastforce
+  next
+  case (PFst P)
+    thus ?case by auto
+  next
+  case (PSnd P)
+    thus ?case by auto
+  next
 qed
 
 lemma ptrm_alpha_equiv_fvs:
   assumes "X \<approx> Y"
   shows "ptrm_fvs X = ptrm_fvs Y"
-using assms proof(induction rule: ptrm_alpha_equiv.induct, simp, simp, simp)
+using assms 
+  apply (induction rule: ptrm_alpha_equiv.induct, simp, simp, simp, simp)
+  defer
+  apply (simp, simp, simp)
+proof -
   case (fn2 a b A B T)
     have "ptrm_fvs (PFn a T A) = ptrm_fvs A - {a}" by simp
     moreover have "... = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B) - {a}" using fn2.IH by metis
@@ -127,6 +172,9 @@ lemma ptrm_alpha_equiv_prm:
   assumes "X \<approx> Y"
   shows "\<pi> \<bullet> X \<approx> \<pi> \<bullet> Y"
 using assms proof(induction rule: ptrm_alpha_equiv.induct)
+  case (unit)
+    thus ?case using ptrm_alpha_equiv.unit by simp
+  next
   case (var x)
     thus ?case using ptrm_alpha_equiv.var by simp
   next
@@ -143,6 +191,15 @@ using assms proof(induction rule: ptrm_alpha_equiv.induct)
     moreover have "\<pi> \<bullet> A \<approx> [\<pi> $ a \<leftrightarrow> \<pi> $ b] \<bullet> \<pi> \<bullet> B"
       using fn2.IH prm_compose_push ptrm_prm_apply_compose by metis
     ultimately show ?case using ptrm_alpha_equiv.fn2 by simp
+  next
+  case (pair A B C D)
+    thus ?case using ptrm_alpha_equiv.pair by simp
+  next
+  case (fst A B)
+    thus ?case using ptrm_alpha_equiv.fst by simp
+  next
+  case (snd A B)
+    thus ?case using ptrm_alpha_equiv.snd by simp
   next
 qed
 
@@ -162,20 +219,23 @@ lemma ptrm_fresh_transfer:
   assumes "a \<noteq> b" "a \<notin> ptrm_fvs A"
   shows "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)"
 using assms proof(induction A)
+  case (PUnit)
+    thus ?case by simp
+  next
   case (PVar x)
     hence "a \<noteq> x" by auto
     consider "b = x" | "b \<noteq> x" by auto
     thus ?case proof(cases)
       assume "b = x"
       hence "[a \<leftrightarrow> b] \<bullet> PVar x = PVar a"
-        using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(1) by metis
+        using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(2) by metis
       hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PVar x) = {a}" by simp
       thus ?thesis using `a \<noteq> x` `b = x` by simp
       next
 
       assume "b \<noteq> x"
       hence "[a \<leftrightarrow> b] \<bullet> PVar x = PVar x"
-        using prm_unit_inaction `a \<noteq> x` ptrm_apply_prm.simps(1) by metis
+        using prm_unit_inaction `a \<noteq> x` ptrm_apply_prm.simps(2) by metis
       hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PVar x) = {x}" by simp
       thus ?thesis using `b \<noteq> x` by simp
     qed
@@ -202,18 +262,30 @@ using assms proof(induction A)
       thus ?thesis proof(cases)
         assume "b = x"
         hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn a T ([a \<leftrightarrow> b] \<bullet> A)"
-          using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(3) by metis
+          using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(4) by metis
         hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PFn x T A) = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A) - {a}" by simp
         thus ?thesis using `a \<noteq> x` `b = x` * by auto
         next
 
         assume "b \<noteq> x"
         hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn x T ([a \<leftrightarrow> b] \<bullet> A)"
-          using `a \<noteq> x` prm_unit_inaction ptrm_apply_prm.simps(3) by metis
+          using `a \<noteq> x` prm_unit_inaction ptrm_apply_prm.simps(4) by metis
         hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PFn x T A) = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A) - {x}" by simp
         thus ?thesis using `b \<noteq> x` * by auto
       qed
     qed
+  next
+  case (PPair A B)
+    hence "a \<noteq> b" "a \<notin> ptrm_fvs A" "a \<notin> ptrm_fvs B" by auto
+    hence "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)" "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using PPair.IH by auto
+    hence "b \<notin> ptrm_fvs (PApp ([a \<leftrightarrow> b] \<bullet> A) ([a \<leftrightarrow> b] \<bullet> B))" by simp
+    thus ?case by simp
+  next
+  case (PFst P)
+    thus ?case by simp
+  next
+  case (PSnd P)
+    thus ?case by simp
   next
 qed
 
@@ -252,6 +324,9 @@ lemma ptrm_prm_agreement_equiv:
   assumes "\<And>a. a \<in> ds \<pi> \<sigma> \<Longrightarrow> a \<notin> ptrm_fvs M"
   shows "\<pi> \<bullet> M \<approx> \<sigma> \<bullet> M"
 using assms proof(induction M arbitrary: \<pi> \<sigma>)
+  case (PUnit)
+    thus ?case using ptrm_alpha_equiv.unit by simp
+  next
   case (PVar x)
     consider "x \<in> ds \<pi> \<sigma>" | "x \<notin> ds \<pi> \<sigma>" by auto
     thus ?case proof(cases)
@@ -286,9 +361,12 @@ using assms proof(induction M arbitrary: \<pi> \<sigma>)
       next
       case 2
         hence "\<pi> $ x \<noteq> \<sigma> $ x" using prm_disagreement_def CollectD by fastforce
-        moreover hence "\<pi> $ x \<notin> ptrm_fvs (\<sigma> \<bullet> A)"
-          using ptrm_fvs.simps(3) ptrm_prm_fvs prm_set_def prm_disagreement_ext prm_apply_unequal
-          using PFn 2 Diff_empty Diff_insert0 image_iff insertE insert_Diff by smt
+        moreover have "\<pi> $ x \<notin> ptrm_fvs (\<sigma> \<bullet> A)"
+        proof -
+          consider "x \<in> ptrm_fvs A" | "x \<notin> ptrm_fvs A" by auto
+          hence "\<pi> $ x \<notin> \<sigma> {$} ptrm_fvs A" sorry
+          thus ?thesis using ptrm_prm_fvs by metis
+        qed
         moreover have "\<pi> \<bullet> A \<approx> [\<pi> $ x \<leftrightarrow> \<sigma> $ x] \<bullet> \<sigma> \<bullet> A"
         proof -
           have "\<And>a. a \<in> ds \<pi> ([\<pi> $ x \<leftrightarrow> \<sigma> $ x] \<diamondop> \<sigma>) \<Longrightarrow> a \<notin> ptrm_fvs A" proof -
@@ -307,6 +385,18 @@ using assms proof(induction M arbitrary: \<pi> \<sigma>)
         ultimately show ?thesis using ptrm_alpha_equiv.fn2 by simp
       next
     qed
+  next
+  case (PPair A B)
+    hence "\<pi> \<bullet> A \<approx> \<sigma> \<bullet> A" and "\<pi> \<bullet> B \<approx> \<sigma> \<bullet> B" by auto
+    thus ?case using ptrm_alpha_equiv.pair by auto
+  next
+  case (PFst P)
+    hence "\<pi> \<bullet> P \<approx> \<sigma> \<bullet> P" by auto
+    thus ?case using ptrm_alpha_equiv.fst by auto
+  next
+  case (PSnd P)
+    hence "\<pi> \<bullet> P \<approx> \<sigma> \<bullet> P" by auto
+    thus ?case using ptrm_alpha_equiv.snd by auto
   next
 qed
 
@@ -367,6 +457,11 @@ using assms proof(induction "size X" arbitrary: X Y Z rule: less_induct)
   assume IH: "\<And>K Y Z :: 'a ptrm. size K < size X \<Longrightarrow> K \<approx> Y \<Longrightarrow> Y \<approx> Z \<Longrightarrow> K \<approx> Z"
   assume "X \<approx> Y" and "Y \<approx> Z"
   show "X \<approx> Z" proof(cases X)
+    case (PUnit)
+      hence "Y = PUnit" using `X \<approx> Y` unitE by metis
+      hence "Z = PUnit" using `Y \<approx> Z` unitE by metis
+      thus ?thesis using ptrm_alpha_equiv.unit `X = PUnit` by metis
+    next
     case (PVar x)
       hence "PVar x \<approx> Y" using `X \<approx> Y` by auto
       hence "Y = PVar x" using varE by metis
@@ -489,6 +584,32 @@ using assms proof(induction "size X" arbitrary: X Y Z rule: less_induct)
         next
       qed
     next
+    case (PPair A B)
+      obtain C D where "Y = PPair C D" and "A \<approx> C" and "B \<approx> D"
+        using pairE `X = PPair A B` `X \<approx> Y` by metis
+      hence "PPair C D \<approx> Z" using `Y \<approx> Z` by simp
+      from this obtain E F where "Z = PPair E F" and "C \<approx> E" and "D \<approx> F" using pairE by metis
+
+      have "size A < size X" and "size B < size X" using `X = PPair A B` by auto
+      hence "A \<approx> E" and "B \<approx> F" using IH `A \<approx> C` `C \<approx> E` `B \<approx> D` `D \<approx> F` by auto
+      thus ?thesis using `X = PPair A B` `Z = PPair E F` ptrm_alpha_equiv.pair by metis
+    next
+    case (PFst P)
+      obtain Q where "Y = PFst Q" "P \<approx> Q" using fstE `X = PFst P` `X \<approx> Y` by metis
+      obtain R where "Z = PFst R" "Q \<approx> R" using fstE `Y = PFst Q` `Y \<approx> Z` by metis
+
+      have "size P < size X" using `X = PFst P` by auto
+      hence "P \<approx> R" using IH `P \<approx> Q` `Q \<approx> R` by metis
+      thus ?thesis using `X = PFst P` `Z = PFst R` ptrm_alpha_equiv.fst by metis
+    next
+    case (PSnd P)
+      obtain Q where "Y = PSnd Q" "P \<approx> Q" using sndE `X = PSnd P` `X \<approx> Y` by metis
+      obtain R where "Z = PSnd R" "Q \<approx> R" using sndE `Y = PSnd Q` `Y \<approx> Z` by metis
+
+      have "size P < size X" using `X = PSnd P` by auto
+      hence "P \<approx> R" using IH `P \<approx> Q` `Q \<approx> R` by metis
+      thus ?thesis using `X = PSnd P` `Z = PSnd R` ptrm_alpha_equiv.snd by metis
+    next
   qed
 qed
 
@@ -500,7 +621,8 @@ unfolding transp_def using ptrm_alpha_equiv_transitive by auto
 type_synonym 'a typing_ctx = "'a \<rightharpoonup> type"
 
 fun ptrm_infer_type :: "'a typing_ctx \<Rightarrow> 'a ptrm \<Rightarrow> type option" where
-  "ptrm_infer_type \<Gamma> (PVar x) = \<Gamma> x"
+  "ptrm_infer_type \<Gamma> PUnit = Some TUnit"
+| "ptrm_infer_type \<Gamma> (PVar x) = \<Gamma> x"
 | "ptrm_infer_type \<Gamma> (PApp A B) = (case (ptrm_infer_type \<Gamma> A, ptrm_infer_type \<Gamma> B) of
      (Some (TArr \<tau> \<sigma>), Some \<tau>') \<Rightarrow> (if \<tau> = \<tau>' then Some \<sigma> else None)
    | _ \<Rightarrow> None
@@ -509,17 +631,33 @@ fun ptrm_infer_type :: "'a typing_ctx \<Rightarrow> 'a ptrm \<Rightarrow> type o
      Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>)
    | None \<Rightarrow> None
    )"
+| "ptrm_infer_type \<Gamma> (PPair A B) = (case (ptrm_infer_type \<Gamma> A, ptrm_infer_type \<Gamma> B) of
+     (Some \<tau>, Some \<sigma>) \<Rightarrow> Some (TPair \<tau> \<sigma>)
+   | _ \<Rightarrow> None
+   )"
+| "ptrm_infer_type \<Gamma> (PFst P) = (case ptrm_infer_type \<Gamma> P of
+     (Some (TPair \<tau> \<sigma>)) \<Rightarrow> Some \<tau>
+   | _ \<Rightarrow> None
+   )"
+| "ptrm_infer_type \<Gamma> (PSnd P) = (case ptrm_infer_type \<Gamma> P of
+     (Some (TPair \<tau> \<sigma>)) \<Rightarrow> Some \<sigma>
+   | _ \<Rightarrow> None
+   )"
 
 lemma ptrm_infer_type_weaken:
   assumes "y \<notin> ptrm_fvs X"
   shows "ptrm_infer_type \<Gamma> X = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)) X"
-using assms proof(induction X arbitrary: \<Gamma>, simp, simp)
+using assms 
+  apply (induction X arbitrary: \<Gamma>, simp, simp, simp)
+  defer
+  apply (simp, simp, simp)
+proof -
   case (PFn x T A)
     consider "y = x" | "y \<noteq> x \<and> y \<notin> ptrm_fvs A" using `y \<notin> ptrm_fvs (PFn x T A)` by auto
     thus ?case proof(cases)
       case 1
         have "\<Gamma>(y \<mapsto> \<tau>)(x \<mapsto> T) = \<Gamma>(x \<mapsto> T)" using `y = x` by simp
-        thus ?thesis by (metis ptrm_infer_type.simps(3))
+        thus ?thesis by (metis ptrm_infer_type.simps(4))
       next
       case 2
         hence "y \<noteq> x" and "y \<notin> ptrm_fvs A" by auto
@@ -528,7 +666,7 @@ using assms proof(induction X arbitrary: \<Gamma>, simp, simp)
           by auto
         hence "\<And>\<Gamma>. ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)(x \<mapsto> T)) A"
           using `y \<noteq> x` by simp
-        thus ?thesis using ptrm_infer_type.simps(3) by metis
+        thus ?thesis using ptrm_infer_type.simps(4) by metis
       next
     qed
   next
@@ -538,6 +676,9 @@ lemma ptrm_infer_type_swp_types:
   assumes "a \<noteq> b"
   shows "ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) X = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> X)"
 using assms proof(induction X arbitrary: T S \<Gamma>)
+  case (PUnit)
+    thus ?case by simp
+  next
   case (PVar x)
     consider "x = a" | "x = b" | "x \<noteq> a \<and> x \<noteq> b" by auto
     thus ?case proof(cases)
@@ -548,7 +689,7 @@ using assms proof(induction X arbitrary: T S \<Gamma>)
       assume "x = b"
       thus ?thesis using `a \<noteq> b`
         using prm_unit_action prm_unit_commutes fun_upd_same fun_upd_twist
-        by (metis ptrm_apply_prm.simps(1) ptrm_infer_type.simps(1))
+        by (metis ptrm_apply_prm.simps(2) ptrm_infer_type.simps(2))
       next
 
       assume "x \<noteq> a \<and> x \<noteq> b"
@@ -569,24 +710,33 @@ using assms proof(induction X arbitrary: T S \<Gamma>)
       assume "x = a"
       thus ?thesis
         using * fun_upd_twist fun_upd_upd prm_unit_action
-        using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+        using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
         by smt
       next
 
       assume "x = b"
       thus ?thesis
         using * fun_upd_twist fun_upd_upd prm_unit_action prm_unit_commutes
-        using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+        using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
         by smt
       next
 
       assume "x \<noteq> a \<and> x \<noteq> b"
       thus ?thesis
         using * fun_upd_twist prm_unit_inaction
-        using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+        using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
         by smt
       next
     qed
+  next
+  case (PPair A B)
+    thus ?case by simp
+  next
+  case (PFst P)
+    thus ?case by simp
+  next
+  case (PSnd P)
+    thus ?case by simp
   next
 qed
 
@@ -594,6 +744,9 @@ lemma ptrm_infer_type_swp:
   assumes "a \<noteq> b" "b \<notin> ptrm_fvs X"
   shows "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) X = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> X)"
 using assms proof(induction X arbitrary: \<tau> \<Gamma>)
+  case (PUnit)
+    thus ?case by simp
+  next
   case (PVar x)
     hence "x \<noteq> b" by simp
     consider "x = a" | "x \<noteq> a" by auto
@@ -624,7 +777,7 @@ using assms proof(induction X arbitrary: \<tau> \<Gamma>)
     and   "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) B = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> B)"
       using PApp.IH assms by metis+
     
-    thus ?case by (metis ptrm_apply_prm.simps(2) ptrm_infer_type.simps(2))
+    thus ?case by (metis ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3))
   next
   case (PFn x \<sigma> A)
     consider "b \<noteq> x \<and> b \<notin> ptrm_fvs A" | "b = x" using PFn.prems by auto
@@ -641,13 +794,13 @@ using assms proof(induction X arbitrary: \<tau> \<Gamma>)
           ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> PFn x \<sigma> A) =
           ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) (PFn b \<sigma> ([a \<leftrightarrow> b] \<bullet> A))"
         by (auto simp add: prm_unit_action)
-        thus ?thesis using * ptrm_infer_type.simps(3) fun_upd_upd by metis
+        thus ?thesis using * ptrm_infer_type.simps(4) fun_upd_upd by metis
         next
 
         assume "a \<noteq> x"
         thus ?thesis
           using `b \<noteq> x` prm_unit_inaction * fun_upd_twist
-          using ptrm_apply_prm.simps(3) ptrm_infer_type.simps(3)
+          using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
           by smt
         next
       qed
@@ -661,16 +814,29 @@ using assms proof(induction X arbitrary: \<tau> \<Gamma>)
       " using ptrm_infer_type_swp_types using `a \<noteq> b` fun_upd_twist by metis
       thus ?thesis
         using `b = x` prm_unit_action prm_unit_commutes
-        using ptrm_infer_type.simps(3) ptrm_apply_prm.simps(3) by metis
+        using ptrm_infer_type.simps(4) ptrm_apply_prm.simps(4) by metis
       next
     qed
+  next
+  case (PPair A B)
+    thus ?case by simp
+  next
+  case (PFst P)
+    thus ?case by simp
+  next
+  case (PSnd P)
+    thus ?case by simp
   next
 qed
 
 lemma ptrm_infer_type_alpha_equiv:
   assumes "X \<approx> Y"
   shows "ptrm_infer_type \<Gamma> X = ptrm_infer_type \<Gamma> Y"
-using assms proof(induction arbitrary: \<Gamma>, simp, simp, simp)
+using assms
+  apply (induction arbitrary: \<Gamma>, simp, simp, simp, simp)
+  defer
+  apply (simp, simp, simp)
+proof -
   case (fn2 a b A B T \<Gamma>)
     hence "ptrm_infer_type (\<Gamma>(a \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(b \<mapsto> T)) B"
       using ptrm_infer_type_swp prm_unit_commutes by metis
