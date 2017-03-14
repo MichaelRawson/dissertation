@@ -443,7 +443,7 @@ definition prm_disagreement :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a set
 
 lemma prm_disagreement_ext:
   shows "x \<in> ds \<pi> \<sigma> \<equiv> \<pi> $ x \<noteq> \<sigma> $ x"
-using assms unfolding prm_disagreement_def by simp
+unfolding prm_disagreement_def by simp
 
 lemma prm_disagreement_composition:
   assumes "a \<noteq> b" "b \<noteq> c" "a \<noteq> c"

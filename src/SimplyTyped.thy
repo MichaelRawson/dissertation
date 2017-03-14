@@ -29,6 +29,18 @@ lemma depth_fn:
   shows "depth A < depth (Fn x T A)"
 by(transfer, auto)
 
+lemma depth_pair:
+  shows "depth A < depth (Pair A B)" "depth B < depth (Pair A B)"
+by(transfer, auto)+
+
+lemma depth_fst:
+  shows "depth P < depth (Fst P)"
+by(transfer, auto)
+
+lemma depth_snd:
+  shows "depth P < depth (Snd P)"
+by(transfer, auto)
+  
 lemma unit_not_var:
   shows "Unit \<noteq> Var x"
 proof(transfer)
@@ -1519,7 +1531,7 @@ unfolding subst_def proof
   obtain A' B' where A': "A' = (A[x ::= M])" and B': "B' = (B[x ::= M])" by auto
   hence "substitutes A x M A'" "substitutes B x M B'"
     unfolding subst_def using substitutes_function theI by metis+
-  hence "substitutes (Pair A B) x M (Pair A' B')" using substitutes.pair assms by metis
+  hence "substitutes (Pair A B) x M (Pair A' B')" using substitutes.pair by metis
   thus *: "substitutes (Pair A B) x M (Pair (THE X. substitutes A x M X) (THE X. substitutes B x M X))"
     using A' B' unfolding subst_def by metis
 
@@ -1621,14 +1633,43 @@ using assms proof(induction M arbitrary: \<Gamma> \<sigma> rule: trm_strong_dept
     hence "\<Gamma> \<turnstile> Fn x T (A[z ::= N]) : \<sigma>" using typing.tfn `\<sigma> = TArr T \<sigma>'` by metis
     thus ?case using `x \<noteq> z` `x \<notin> fvs N` subst_simp_fn by metis
   next
+  case (5 A B)
+    from this obtain T S where "\<sigma> = TPair T S" "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> A : T" "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> B : S"
+      using typing_pairE by metis
+    moreover have "depth A < depth (Pair A B)" and "depth B < depth (Pair A B)"
+      using depth_pair by auto
+    ultimately have "\<Gamma> \<turnstile> A[z ::= N] : T" "\<Gamma> \<turnstile> B[z ::= N] : S" using 5 by metis+
+    hence "\<Gamma> \<turnstile> Pair (A[z ::= N]) (B[z ::= N]) : \<sigma>" using `\<sigma> = TPair T S` typing.tpair by metis
+    thus ?case using subst_simp_pair by metis
+  next
+  case (6 P)
+    from this obtain \<sigma>' where "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> P : (TPair \<sigma> \<sigma>')" using typing_fstE by metis
+    moreover have "depth P < depth (Fst P)" using depth_fst by metis
+    ultimately have "\<Gamma> \<turnstile> P[z ::= N] : (TPair \<sigma> \<sigma>')" using 6 by metis
+    hence "\<Gamma> \<turnstile> Fst (P[z ::= N]) : \<sigma>" using typing.tfst by metis
+    thus ?case using subst_simp_fst by metis
+  next
+  case (7 P)
+    from this obtain \<sigma>' where "\<Gamma>(z \<mapsto> \<tau>) \<turnstile> P : (TPair \<sigma>' \<sigma>)" using typing_sndE by metis
+    moreover have "depth P < depth (Snd P)" using depth_snd by metis
+    ultimately have "\<Gamma> \<turnstile> P[z ::= N] : (TPair \<sigma>' \<sigma>)" using 7 by metis
+    hence "\<Gamma> \<turnstile> Snd (P[z ::= N]) : \<sigma>" using typing.tsnd by metis
+    thus ?case using subst_simp_snd by metis
+  next
 qed
 
 
 inductive beta_reduction :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ \<rightarrow>\<beta> _") where
-  beta: "(App (Fn x T A) M) \<rightarrow>\<beta> (A[x ::= M])"
-| app1: "A \<rightarrow>\<beta> A' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A' B)"
-| app2: "B \<rightarrow>\<beta> B' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A B')"
-| fn:   "A \<rightarrow>\<beta> A' \<Longrightarrow> (Fn x T A) \<rightarrow>\<beta> (Fn x T A')"
+  beta:  "(App (Fn x T A) M) \<rightarrow>\<beta> (A[x ::= M])"
+| app1:  "A \<rightarrow>\<beta> A' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A' B)"
+| app2:  "B \<rightarrow>\<beta> B' \<Longrightarrow> (App A B) \<rightarrow>\<beta> (App A B')"
+| fn:    "A \<rightarrow>\<beta> A' \<Longrightarrow> (Fn x T A) \<rightarrow>\<beta> (Fn x T A')"
+| pair1: "A \<rightarrow>\<beta> A' \<Longrightarrow> (Pair A B) \<rightarrow>\<beta> (Pair A' B)"
+| pair2: "B \<rightarrow>\<beta> B' \<Longrightarrow> (Pair A B) \<rightarrow>\<beta> (Pair A B')"
+| fst1:  "P \<rightarrow>\<beta> P' \<Longrightarrow> (Fst P) \<rightarrow>\<beta> (Fst P')"
+| fst2:  "(Fst (Pair A B)) \<rightarrow>\<beta> A" 
+| snd1:  "P \<rightarrow>\<beta> P' \<Longrightarrow> (Snd P) \<rightarrow>\<beta> (Snd P')"
+| snd2:  "(Snd (Pair A B)) \<rightarrow>\<beta> B"
 
 lemma beta_reduction_fvs:
   assumes "M \<rightarrow>\<beta> M'"
@@ -1649,35 +1690,42 @@ using assms proof(induction)
     hence "fvs A' - {x} \<subseteq> fvs A - {x}" by auto
     thus ?case using fvs_simp(4) by metis
   next
+  case (pair1 A A' B)
+    hence "fvs A' \<union> fvs B \<subseteq> fvs A \<union> fvs B" by auto
+    thus ?case using fvs_simp(5) by metis
+  next
+  case (pair2 B B' A)
+    hence "fvs A \<union> fvs B' \<subseteq> fvs A \<union> fvs B" by auto
+    thus ?case using fvs_simp(5) by metis
+  next
+  case (fst1 P P')
+    thus ?case using fvs_simp(6) by metis
+  next
+  case (fst2 A B)
+    thus ?case using fvs_simp(5, 6) by force
+  next    
+  case (snd1 P P')
+    thus ?case using fvs_simp(7) by metis
+  next
+  case (snd2 A B)
+    thus ?case using fvs_simp(5, 7) by force
+  next
 qed
 
 lemma beta_reduction_prm:
   assumes "M \<rightarrow>\<beta> M'"
   shows "(\<pi> \<cdot> M) \<rightarrow>\<beta> (\<pi> \<cdot> M')"
-using assms proof(induction)
-  case (beta x T A M)
-    thus ?case using beta_reduction.beta trm_prm_simp(3) trm_prm_simp(4) subst_prm by metis
-  next
-  case (app1 A A' B)
-    thus ?case using beta_reduction.app1 trm_prm_simp(3) by metis
-  next
-  case (app2 B B' A)
-    thus ?case using beta_reduction.app2 trm_prm_simp(3) by metis
-  next
-  case (fn A A' x T)
-    thus ?case using beta_reduction.fn trm_prm_simp(4) by metis
-  next
-qed
+using assms by(induction, auto simp add: beta_reduction.intros trm_prm_simp subst_prm)
 
 lemma beta_reduction_left_unitE:
   assumes "Unit \<rightarrow>\<beta> M'"
   shows "False"
-using assms by(cases, auto simp add: unit_not_app unit_not_fn)
+using assms by(cases, auto simp add: unit_not_app unit_not_fn unit_not_pair unit_not_fst unit_not_snd)
 
 lemma beta_reduction_left_varE:
   assumes "(Var x) \<rightarrow>\<beta> M'"
   shows "False"
-using assms by(cases, auto simp add: var_not_app var_not_fn)
+using assms by(cases, auto simp add: var_not_app var_not_fn var_not_pair var_not_fst var_not_snd)
 
 lemma beta_reduction_left_appE:
   assumes "(App A B) \<rightarrow>\<beta> M'"
@@ -1691,17 +1739,22 @@ using assms by(
   metis trm_simp(2, 3),
   metis trm_simp(2, 3),
   metis trm_simp(2, 3),
-  metis app_not_fn
+  auto simp add: app_not_fn app_not_pair app_not_fst app_not_snd
 )
 
 lemma beta_reduction_left_fnE:
   assumes "(Fn x T A) \<rightarrow>\<beta> M'"
   shows "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = (Fn x T A')"
-using assms proof(cases, metis app_not_fn, metis app_not_fn, metis app_not_fn)
+using assms
+  apply cases
+  apply (metis app_not_fn, metis app_not_fn, metis app_not_fn)
+  defer
+  apply (auto simp add: fn_not_pair fn_not_fst fn_not_snd)
+proof -
   case (fn B B' y S)
     consider "x = y \<and> T = S \<and> A = B" | "x \<noteq> y \<and> T = S \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
       using trm_simp(4) `Fn x T A = Fn y S B` by metis
-    thus ?thesis proof(cases)
+    thus "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> (Fn y S B' = Fn x T A')" proof(cases)
       case 1
         thus ?thesis using fn by auto
       next
@@ -1712,6 +1765,51 @@ using assms proof(cases, metis app_not_fn, metis app_not_fn, metis app_not_fn)
   next
 qed
 
+lemma beta_reduction_left_pairE:
+  assumes "(Pair A B) \<rightarrow>\<beta> M'"
+  shows "(\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = (Pair A' B)) \<or> (\<exists>B'. (B \<rightarrow>\<beta> B') \<and> M' = (Pair A B'))"
+using assms
+  apply cases
+  prefer 5
+  apply (metis trm_simp(5, 6))
+  prefer 5
+  apply (metis trm_simp(5, 6))
+  apply (metis app_not_pair, metis app_not_pair, metis app_not_pair, metis fn_not_pair, metis pair_not_fst, metis pair_not_fst, metis pair_not_snd, metis pair_not_snd)
+done
+
+lemma beta_reduction_left_fstE:
+  assumes "(Fst P) \<rightarrow>\<beta> M'"
+  shows "(\<exists>P'. (P \<rightarrow>\<beta> P') \<and> M' = (Fst P')) \<or> (\<exists>A B. P = (Pair A B) \<and> M' = A)"
+using assms
+  apply cases
+  apply (metis app_not_fst, metis app_not_fst, metis app_not_fst, metis fn_not_fst, metis pair_not_fst, metis pair_not_fst)
+  defer
+  defer
+  apply (metis fst_not_snd, metis fst_not_snd)
+proof -
+  case (fst1 P P')
+    thus ?thesis using trm_simp(7) by blast
+  next
+  case (fst2 B)
+    thus ?thesis using trm_simp(7) by blast
+  next
+qed
+
+lemma beta_reduction_left_sndE:
+  assumes "(Snd P) \<rightarrow>\<beta> M'"
+  shows "(\<exists>P'. (P \<rightarrow>\<beta> P') \<and> M' = (Snd P')) \<or> (\<exists>A B. P = Pair A B \<and> M' = B)"
+using assms
+  apply cases
+  apply (metis app_not_snd, metis app_not_snd, metis app_not_snd, metis fn_not_snd, metis pair_not_snd, metis pair_not_snd, metis fst_not_snd, metis fst_not_snd)
+proof -
+  case (snd1 P P')
+    thus ?thesis using trm_simp(8) by blast
+  next
+  case (snd2 A)
+    thus ?thesis using trm_simp(8) by blast
+  next
+qed
+  
 lemma preservation':
   assumes "\<Gamma> \<turnstile> M : \<tau>" and "M \<rightarrow>\<beta> M'"
   shows "\<Gamma> \<turnstile> M' : \<tau>"
@@ -1758,14 +1856,62 @@ using assms proof(induction arbitrary: M' rule: typing.induct)
     hence "\<Gamma> \<turnstile> (Fn x T A') : (TArr T \<sigma>)" using typing.tfn by metis
     thus ?case using * by auto
   next
+  case (tpair \<Gamma> A \<tau> B \<sigma>)
+    from this consider
+      "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = (Pair A' B)"
+    | "\<exists>B'. (B \<rightarrow>\<beta> B') \<and> M' = (Pair A B')"
+      using beta_reduction_left_pairE by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain A' where "A \<rightarrow>\<beta> A'" and "M' = Pair A' B" by auto
+        thus ?thesis using tpair typing.tpair by metis
+      next
+      case 2
+        from this obtain B' where "B \<rightarrow>\<beta> B'" and "M' = Pair A B'" by auto
+        thus ?thesis using tpair typing.tpair by metis
+      next
+    qed
+  next
+  case (tfst \<Gamma> P \<tau> \<sigma>)
+    from this consider
+      "\<exists>P'. (P \<rightarrow>\<beta> P') \<and> M' = Fst P'"
+    | "\<exists>A B. P = Pair A B \<and> M' = A" using beta_reduction_left_fstE by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain P' where "P \<rightarrow>\<beta> P'" and "M' = Fst P'" by auto
+        thus ?thesis using tfst typing.tfst by metis
+      next
+      case 2
+        from this obtain A B where "P = Pair A B" and "M' = A" by auto
+        thus ?thesis using `\<Gamma> \<turnstile> P : (TPair \<tau> \<sigma>)` typing_pairE by blast
+      next
+    qed
+  next
+  case (tsnd \<Gamma> P \<tau> \<sigma>)
+    from this consider
+      "\<exists>P'. (P \<rightarrow>\<beta> P') \<and> M' = Snd P'"
+    | "\<exists>A B. P = Pair A B \<and> M' = B" using beta_reduction_left_sndE by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain P' where "P \<rightarrow>\<beta> P'" and "M' = Snd P'" by auto
+        thus ?thesis using tsnd typing.tsnd by metis
+      next
+      case 2
+        from this obtain A B where "P = Pair A B" and "M' = B" by auto
+        thus ?thesis using `\<Gamma> \<turnstile> P : (TPair \<tau> \<sigma>)` typing_pairE by blast
+      next
+    qed
+  next  
 qed
 
 inductive NF :: "'a trm \<Rightarrow> bool" where
   unit: "NF Unit"
 | var: "NF (Var x)"
-| app_var: "NF B \<Longrightarrow> NF (App (Var x) B)"
-| app_app: "\<lbrakk>NF (App C D); NF B\<rbrakk> \<Longrightarrow> NF (App (App C D) B)"
+| app: "\<lbrakk>A \<noteq> Fn x T A'; NF A; NF B\<rbrakk> \<Longrightarrow> NF (App A B)"
 | fn: "NF A \<Longrightarrow> NF (Fn x T A)"
+| pair: "\<lbrakk>NF A; NF B\<rbrakk> \<Longrightarrow> NF (Pair A B)"
+| fst: "\<lbrakk>P \<noteq> Pair A B; NF P\<rbrakk> \<Longrightarrow> NF (Fst P)"
+| snd: "\<lbrakk>P \<noteq> Pair A B; NF P\<rbrakk> \<Longrightarrow> NF (Snd P)"
 
 theorem progress:
   assumes "\<Gamma> \<turnstile> M : \<tau>"
@@ -1790,21 +1936,15 @@ using assms proof(induction M arbitrary: \<Gamma> \<tau> rule: trm_induct)
         consider "NF A" | "\<exists>A'. (A \<rightarrow>\<beta> A')" using A by auto
         thus ?thesis proof(cases)
           case 1
-            thus ?thesis proof(induction A rule: trm_cases)
+            consider "\<exists>x T A'. A = Fn x T A'" | "\<nexists>x T A'. A = Fn x T A'" by auto
+            thus ?thesis proof(cases)
               case 1
-                show ?thesis
-                  using `A = Unit` `\<Gamma> \<turnstile> A : (TArr \<sigma> \<tau>)` type.distinct(3) typing_unitE
-                  by metis
+                from this obtain x T A' where "A = Fn x T A'" by auto
+                hence "(App A B) \<rightarrow>\<beta> (A'[x ::= B])" using beta_reduction.beta by metis
+                thus ?thesis by blast
               next
-              case (2 x)
-                thus ?thesis using `NF B` NF.app_var by metis
-              next
-              case (3 C D)
-                thus ?thesis using `NF B` NF.app_app by metis
-              next
-              case (4 y S X)
-                hence "(App A B) \<rightarrow>\<beta> (X[y ::= B])" using beta_reduction.beta by metis
-                thus ?thesis by auto
+              case 2
+                thus ?thesis using `NF A` `NF B` NF.app by metis
               next
             qed
           next
@@ -1837,6 +1977,51 @@ using assms proof(induction M arbitrary: \<Gamma> \<tau> rule: trm_induct)
       next
     qed
   next
+  case (5 A B)
+    thus ?case using typing_pairE beta_reduction.pair1 beta_reduction.pair2 NF.pair by meson
+  next
+  case (6 P)
+    from this consider "NF P" | "\<exists>P'. (P \<rightarrow>\<beta> P')" using typing_fstE by metis
+    thus ?case proof(cases)  
+      case 1
+        consider "\<exists>A B. P = Pair A B" | "\<nexists>A B. P = Pair A B" by auto
+        thus ?thesis proof(cases)
+          case 1
+            from this obtain A B where "P = Pair A B" by auto
+            hence "(Fst P) \<rightarrow>\<beta> A" using beta_reduction.fst2 by metis
+            thus ?thesis by auto
+          next
+          case 2
+            thus ?thesis using `NF P` NF.fst by metis
+          next
+        qed
+      next
+      case 2
+        thus ?thesis using beta_reduction.fst1 by metis
+      next
+    qed
+  next  
+  case (7 P)
+    from this consider "NF P" | "\<exists>P'. (P \<rightarrow>\<beta> P')" using typing_sndE by metis
+    thus ?case proof(cases)  
+      case 1
+        consider "\<exists>A B. P = Pair A B" | "\<nexists>A B. P = Pair A B" by auto
+        thus ?thesis proof(cases)
+          case 1
+            from this obtain A B where "P = Pair A B" by auto
+            hence "(Snd P) \<rightarrow>\<beta> B" using beta_reduction.snd2 by metis
+            thus ?thesis by auto
+          next
+          case 2
+            thus ?thesis using `NF P` NF.snd by metis
+          next
+        qed
+      next
+      case 2
+        thus ?thesis using beta_reduction.snd1 by metis
+      next
+    qed
+  next  
 qed
 
 inductive beta_reduces :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ \<rightarrow>\<beta>\<^sup>* _") where
@@ -1904,6 +2089,54 @@ using assms proof(induction)
   next
 qed
 
+lemma beta_reduces_pair_left:
+  assumes "A \<rightarrow>\<beta>\<^sup>* A'"
+  shows "(Pair A B) \<rightarrow>\<beta>\<^sup>* (Pair A' B)"
+using assms proof(induction)
+  case (reflexive M)
+    thus ?case using beta_reduces.reflexive.
+  next
+  case (transitive M M' M'')
+    thus ?case using beta_reduces.transitive beta_reduction.pair1 by metis
+  next  
+qed
+
+lemma beta_reduces_pair_right:
+  assumes "B \<rightarrow>\<beta>\<^sup>* B'"
+  shows "(Pair A B) \<rightarrow>\<beta>\<^sup>* (Pair A B')"
+using assms proof(induction)
+  case (reflexive M)
+    thus ?case using beta_reduces.reflexive.
+  next
+  case (transitive M M' M'')
+    thus ?case using beta_reduces.transitive beta_reduction.pair2 by metis
+  next  
+qed
+
+lemma beta_reduces_fst:
+  assumes "P \<rightarrow>\<beta>\<^sup>* P'"
+  shows "(Fst P) \<rightarrow>\<beta>\<^sup>* (Fst P')"
+using assms proof(induction)
+  case (reflexive M)
+    thus ?case using beta_reduces.reflexive.
+  next
+  case (transitive M M' M'')
+    thus ?case using beta_reduces.transitive beta_reduction.fst1 by metis
+  next
+qed
+
+lemma beta_reduces_snd:
+  assumes "P \<rightarrow>\<beta>\<^sup>* P'"
+  shows "(Snd P) \<rightarrow>\<beta>\<^sup>* (Snd P')"
+using assms proof(induction)
+  case (reflexive M)
+    thus ?case using beta_reduces.reflexive.
+  next
+  case (transitive M M' M'')
+    thus ?case using beta_reduces.transitive beta_reduction.snd1 by metis
+  next
+qed
+  
 theorem preservation:
   assumes "M \<rightarrow>\<beta>\<^sup>* M'" "\<Gamma> \<turnstile> M : \<tau>"
   shows "\<Gamma> \<turnstile> M' : \<tau>"
@@ -1958,6 +2191,18 @@ using assms proof(induction X rule: trm_strong_induct[where S="{z} \<union> fvs 
       using beta_reduces_fn by metis
     thus ?case using subst_simp_fn `x \<noteq> z` `x \<notin> fvs M` `x \<notin> fvs M'` by metis
   next
+  case (5 A B)
+    hence "(A[z ::= M]) \<rightarrow>\<beta>\<^sup>* (A[z ::= M'])" "(B[z ::= M]) \<rightarrow>\<beta>\<^sup>* (B[z ::= M'])" by auto
+    hence "(Pair (A[z ::= M]) (B[z ::= M])) \<rightarrow>\<beta>\<^sup>* (Pair (A[z ::= M']) (B[z ::= M']))"
+      using beta_reduces_pair_left beta_reduces_pair_right beta_reduces_composition by metis
+    thus ?case using subst_simp_pair by metis
+  next
+  case (6 P)
+    thus ?case using subst_simp_fst beta_reduces_fst by metis
+  next
+  case (7 P)
+    thus ?case using subst_simp_snd beta_reduces_snd by metis
+  next
 qed
 
 lemma substitution_outer':
@@ -1978,6 +2223,50 @@ using assms proof(induction X arbitrary: X' rule: trm_strong_induct[where S="{z}
     from `(Fn x T B) \<rightarrow>\<beta> X'` obtain B' where "B \<rightarrow>\<beta> B'" "X' = Fn x T B'"
       using beta_reduction_left_fnE by metis
     thus ?case using "4.IH" beta_reduction.fn `x \<noteq> z` `x \<notin> fvs M` subst_simp_fn by auto
+  next
+  case (5 A B)
+    from `(Pair A B) \<rightarrow>\<beta> X'` and beta_reduction_left_pairE consider
+      "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> X' = (Pair A' B)"
+    | "\<exists>B'. (B \<rightarrow>\<beta> B') \<and> X' = (Pair A B')" by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain A' where "A \<rightarrow>\<beta> A'" "X' = Pair A' B" by auto
+        thus ?thesis using "5.IH" subst_simp_pair beta_reduction.pair1 by metis
+    next
+      case 2
+        from this obtain B' where "B \<rightarrow>\<beta> B'" "X' = Pair A B'" by auto
+        thus ?thesis using "5.IH" subst_simp_pair beta_reduction.pair2 by metis
+    qed
+  next
+  case (6 P)
+    from `(Fst P) \<rightarrow>\<beta> X'` consider
+      "\<exists>P'. (P \<rightarrow>\<beta> P') \<and> X' = (Fst P')"
+    | "\<exists>A B. P = (Pair A B) \<and> X' = A" using beta_reduction_left_fstE by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain P' where "P \<rightarrow>\<beta> P'" "X' = Fst P'" by metis
+        thus ?thesis using "6.IH" subst_simp_fst beta_reduction.fst1 by metis
+      next
+      case 2
+        from this obtain A B where "P = Pair A B" and "X' = A" by metis
+        thus ?thesis using subst_simp_pair subst_simp_fst beta_reduction.fst2 by metis
+      next
+    qed
+  next
+  case (7 P)
+    from `(Snd P) \<rightarrow>\<beta> X'` consider
+      "\<exists>P'. (P \<rightarrow>\<beta> P') \<and> X' = (Snd P')"
+    | "\<exists>A B. P = (Pair A B) \<and> X' = B" using beta_reduction_left_sndE by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain P' where "P \<rightarrow>\<beta> P'" "X' = Snd P'" by metis
+        thus ?thesis using "7.IH" subst_simp_snd beta_reduction.snd1 by metis
+      next
+      case 2
+        from this obtain A B where "P = Pair A B" and "X' = B" by metis
+        thus ?thesis using subst_simp_pair subst_simp_snd beta_reduction.snd2 by metis
+      next
+    qed
   next
   case (3 A B)
     from `(App A B) \<rightarrow>\<beta> X'` and beta_reduction_left_appE consider
@@ -2017,25 +2306,31 @@ inductive parallel_reduction :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool"
 | beta: "\<lbrakk>A >> A'; B >> B'\<rbrakk> \<Longrightarrow> (App (Fn x T A) B) >> (A'[x ::= B'])"
 | eta:  "A >> A' \<Longrightarrow> (Fn x T A) >> (Fn x T A')"
 | app:  "\<lbrakk>A >> A'; B >> B'\<rbrakk> \<Longrightarrow> (App A B) >> (App A' B')"
+| pair: "\<lbrakk>A >> A'; B >> B'\<rbrakk> \<Longrightarrow> (Pair A B) >> (Pair A' B')"
+| fst1: "P >> P' \<Longrightarrow> (Fst P) >> (Fst P')"
+| fst2: "A >> A' \<Longrightarrow> (Fst (Pair A B)) >> A'"
+| snd1: "P >> P' \<Longrightarrow> (Snd P) >> (Snd P')"
+| snd2: "B >> B' \<Longrightarrow> (Snd (Pair A B)) >> B'"
 
 inductive_cases parallel_reduction_unitE': "Unit >> A"
 lemma parallel_reduction_unitE:
   assumes "Unit >> A"
   shows "A = Unit"
-using assms by(rule parallel_reduction_unitE'[where A=A], auto simp add: unit_not_app unit_not_fn)
+using assms
+  apply (rule parallel_reduction_unitE'[where A=A])
+  apply blast
+  apply (auto simp add: unit_not_app unit_not_fn unit_not_pair unit_not_fst unit_not_snd)
+done
 
 inductive_cases parallel_reduction_varE': "(Var x) >> A"
 lemma parallel_reduction_varE:
   assumes "(Var x) >> A"
   shows "A = Var x"
-using assms by(
-  induction rule: parallel_reduction_varE'[where x=x and A=A],
-  metis assms,
-  metis,
-  metis var_not_app,
-  metis var_not_fn,
-  metis var_not_app
-)
+using assms
+  apply (rule parallel_reduction_varE'[where x=x and A=A])
+  apply blast
+  apply (auto simp add: var_not_app var_not_fn var_not_pair var_not_fst var_not_snd)
+done
 
 inductive_cases parallel_reduction_redexE': "(App (Fn x T A) B) >> X"
 lemma parallel_reduction_redexE:
@@ -2054,27 +2349,84 @@ lemma parallel_reduction_fnE:
 sorry
 
 lemma parallel_reduction_nonredexE:
-  assumes "(App A B) >> X" and "\<not>(\<exists>x T A'. A = Fn x T A')"
+  assumes "(App A B) >> X" and "\<And>x T A'. A \<noteq> Fn x T A'"
   shows "(A >> A') \<and> (B >> B') \<and> X = (App A' B')"
 sorry
+
+inductive_cases parallel_reduction_pairE': "(Pair A B) >> X"
+lemma parallel_reduction_pairE:
+  assumes "(Pair A B) >> X"
+  shows "\<exists>A' B'. (A >> A') \<and> (B >> B') \<and> (X = Pair A' B')"
+using assms
+  apply (induction rule: parallel_reduction_pairE'[where A=A and B=B and X=X])
+  apply (metis assms)
+  defer
+  apply (metis app_not_pair, metis fn_not_pair, metis app_not_pair)
+  defer
+  apply (metis pair_not_fst, metis pair_not_fst, metis pair_not_snd, metis pair_not_snd)
+proof -
+  case 2
+    thus ?case using parallel_reduction.refl by blast
+  next
+  case (6 A A' B B')
+    thus ?case using parallel_reduction.pair trm_simp(5, 6) by fastforce
+  next
+qed
+
+inductive_cases parallel_reduction_fstE': "(Fst P) >> X"
+lemma parallel_reduction_fstE:
+  assumes "(Fst P) >> X"
+  shows "(\<exists>P'. (P >> P') \<and> X = (Fst P')) \<or> (\<exists>A A' B. (P = Pair A B) \<and> (A >> A') \<and> X = A')"
+using assms
+  apply (induction rule: parallel_reduction_fstE'[where P=P and X=X])
+  apply (metis assms)
+  apply (insert parallel_reduction.refl, metis)[]
+  apply (metis app_not_fst, metis fn_not_fst, metis app_not_fst, metis pair_not_fst)
+  defer
+  defer
+  apply (metis fst_not_snd, metis fst_not_snd)
+proof -
+  case (7 P P')
+    thus ?case using parallel_reduction.fst1 trm_simp(7) by metis
+  next
+  case (8 A B)
+    thus ?case using parallel_reduction.fst2 trm_simp(7) by metis
+  next
+qed
+
+inductive_cases parallel_reduction_sndE': "(Snd P) >> X"
+lemma parallel_reduction_sndE:
+  assumes "(Snd P) >> X"
+  shows "(\<exists>P'. (P >> P') \<and> X = (Snd P')) \<or> (\<exists>A B B'. (P = Pair A B) \<and> (B >> B') \<and> X = B')"
+using assms
+  apply (induction rule: parallel_reduction_sndE'[where P=P and X=X])
+  apply (metis assms)
+  apply (insert parallel_reduction.refl, metis)[]
+  apply (metis app_not_snd, metis fn_not_snd, metis app_not_snd, metis pair_not_snd, metis fst_not_snd, metis fst_not_snd)
+proof -
+  case (9 P P')
+    thus ?case using parallel_reduction.snd1 trm_simp(8) by metis
+  next
+  case (10 A B)
+    thus ?case using parallel_reduction.snd2 trm_simp(8) by metis
+  next
+qed
 
 lemma parallel_reduction_prm:
   assumes "A >> A'"
   shows "(\<pi> \<cdot> A) >> (\<pi> \<cdot> A')"
-using assms proof(induction)
-  case (refl A)
-    thus ?case using parallel_reduction.refl.
-  next
-  case (beta A A' B B' x T)
-    thus ?case using parallel_reduction.beta subst_prm trm_prm_simp(3, 4) by metis
-  next
-  case (eta A A' x T)
-    thus ?case using parallel_reduction.eta trm_prm_simp(4) by metis
-  next
-  case (app A A' B B')
-    thus ?case using parallel_reduction.app trm_prm_simp(3) by metis
-  next
-qed
+using assms
+  apply induction
+  apply (rule parallel_reduction.refl)
+  apply (metis parallel_reduction.beta subst_prm trm_prm_simp(3, 4))
+  apply (metis parallel_reduction.eta trm_prm_simp(4))
+  apply (metis parallel_reduction.app trm_prm_simp(3))
+  apply (metis parallel_reduction.pair trm_prm_simp(5))
+  apply (metis parallel_reduction.fst1 trm_prm_simp(6))
+  apply (metis parallel_reduction.fst2 trm_prm_simp(5, 6))
+  apply (metis parallel_reduction.snd1 trm_prm_simp(7))
+  apply (metis parallel_reduction.snd2 trm_prm_simp(5, 7))
+done
 
 lemma parallel_reduction_fvs:
   assumes "A >> A'"
@@ -2095,6 +2447,21 @@ using assms proof(induction)
   case (app A A' B B')
     thus ?case using fvs_simp(3) Un_mono by metis
   next
+  case (pair A A' B B')
+    thus ?case using fvs_simp(5) Un_mono by metis
+  next
+  case (fst1 P P')
+    thus ?case using fvs_simp(6) by force
+  next
+  case (fst2 A A' B)
+    thus ?case using fvs_simp(5, 6) by force
+  next
+  case (snd1 P P')
+    thus ?case using fvs_simp(7) by force
+  next
+  case (snd2 B B' A)
+    thus ?case using fvs_simp(5, 7) by force
+  next
 qed
 
 inductive complete_development :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> bool" ("_ >>> _") where
@@ -2102,22 +2469,45 @@ inductive complete_development :: "'a trm \<Rightarrow> 'a trm \<Rightarrow> boo
 | var:  "(Var x) >>> (Var x)"
 | beta: "\<lbrakk>A >>> A'; B >>> B'\<rbrakk> \<Longrightarrow> (App (Fn x T A) B) >>> (A'[x ::= B'])"
 | eta:  "A >>> A' \<Longrightarrow> (Fn x T A) >>> (Fn x T A')"
-| app:  "\<lbrakk>A >>> A'; B >>> B'; \<not>(\<exists>x T M. A = Fn x T M)\<rbrakk> \<Longrightarrow> (App A B) >>> (App A' B')"
+| app:  "\<lbrakk>A >>> A'; B >>> B'; (\<And>x T M. A \<noteq> Fn x T M)\<rbrakk> \<Longrightarrow> (App A B) >>> (App A' B')"
+| pair: "\<lbrakk>A >>> A'; B >>> B'\<rbrakk> \<Longrightarrow> (Pair A B) >>> (Pair A' B')"
+| fst1: "\<lbrakk>P >>> P'; (\<And>A B. P \<noteq> Pair A B)\<rbrakk> \<Longrightarrow> (Fst P) >>> (Fst P')"
+| fst2: "A >>> A' \<Longrightarrow> (Fst (Pair A B)) >>> A'"
+| snd1: "\<lbrakk>P >>> P'; (\<And>A B. P \<noteq> Pair A B)\<rbrakk> \<Longrightarrow> (Snd P) >>> (Snd P')"
+| snd2: "B >>> B' \<Longrightarrow> (Snd (Pair A B)) >>> B'"
 
 lemma not_fn_prm:
-  assumes "\<not>(\<exists>x T M. A = Fn x T M)"
-  shows "\<not>(\<exists>x T M. \<pi> \<cdot> A = Fn x T M)"
+  assumes "\<And>x T M. A \<noteq> Fn x T M"
+  shows "\<pi> \<cdot> A \<noteq> Fn x T M"
 proof(rule classical)
-  assume "\<not>\<not>(\<exists>x T M. \<pi> \<cdot> A = Fn x T M)"
-  hence "\<exists>x T M. \<pi> \<cdot> A = Fn x T M" by blast
-  hence "\<exists>x T M. (prm_inv \<pi>) \<cdot> (\<pi> \<cdot> A) = (prm_inv \<pi>) \<cdot> Fn x T M" by fastforce
-  hence "\<exists>x T M. (prm_inv \<pi> \<diamondop> \<pi>) \<cdot> A = (prm_inv \<pi>) \<cdot> Fn x T M"
+  fix x T M
+  obtain \<pi>' where *: "\<pi>' = prm_inv \<pi>" by auto
+  assume "\<not>(\<pi> \<cdot> A \<noteq> Fn x T M)"
+  hence "\<pi> \<cdot> A = Fn x T M" by blast
+  hence "\<pi>' \<cdot> (\<pi> \<cdot> A) = \<pi>' \<cdot> Fn x T M" by fastforce
+  hence "(\<pi>' \<diamondop> \<pi>) \<cdot> A = \<pi>' \<cdot> Fn x T M"
     using trm_prm_apply_compose by metis
-  hence "\<exists>x T M. A = (prm_inv \<pi>) \<cdot> Fn x T M"
-    using prm_inv_compose trm_prm_apply_id by metis
-  hence "\<exists>x T M. A = Fn ((prm_inv \<pi>) $ x) T ((prm_inv \<pi>) \<cdot> M)"
-    using trm_prm_simp(4) by metis
-  hence "\<exists>x T M. A = Fn x T M" by blast
+  hence "A = \<pi>' \<cdot> Fn x T M"
+    using * prm_inv_compose trm_prm_apply_id by metis
+  hence "A = Fn (\<pi>' $ x) T (\<pi>' \<cdot> M)" using trm_prm_simp(4) by metis
+  hence False using assms by blast
+  thus ?thesis by blast
+qed
+
+lemma not_pair_prm:
+  assumes "\<And>A B. P \<noteq> Pair A B"
+  shows "\<pi> \<cdot> P \<noteq> Pair A B"
+proof(rule classical)
+  fix A B
+  obtain \<pi>' where *: "\<pi>' = prm_inv \<pi>" by auto
+  assume "\<not>(\<pi> \<cdot> P \<noteq> Pair A B)"
+  hence "\<pi> \<cdot> P = Pair A B" by blast
+  hence "\<pi>' \<cdot> \<pi> \<cdot> P = \<pi>' \<cdot> (Pair A B)" by fastforce
+  hence "(\<pi>' \<diamondop> \<pi>) \<cdot> P = \<pi>' \<cdot> (Pair A B)"
+    using trm_prm_apply_compose by metis
+  hence "P = \<pi>' \<cdot> (Pair A B)"
+    using * prm_inv_compose trm_prm_apply_id by metis
+  hence "P = Pair (\<pi>' \<cdot> A) (\<pi>' \<cdot> B)" using trm_prm_simp(5) by metis
   hence False using assms by blast
   thus ?thesis by blast
 qed
@@ -2139,7 +2529,24 @@ using assms proof(induction)
     thus ?case using complete_development.eta trm_prm_simp(4) by metis
   next
   case (app A A' B B')
-    thus ?case using complete_development.app trm_prm_simp(3) not_fn_prm by metis
+    thus ?case using complete_development.app by (simp add: trm_prm_simp(3) not_fn_prm)
+  next
+  case (pair A A' B B')
+    thus ?case using complete_development.pair trm_prm_simp(5) by metis
+  next
+  case (fst1 P P')
+    hence "\<pi> \<cdot> P \<noteq> Pair A B" for A B using not_pair_prm by metis
+    thus ?case using trm_prm_simp(6) fst1.IH complete_development.fst1 by metis
+  next
+  case (fst2 A A' B)
+    thus ?case using trm_prm_simp(5, 6) complete_development.fst2 by metis
+  next
+  case (snd1 P P')
+    hence "\<pi> \<cdot> P \<noteq> Pair A B" for A B using not_pair_prm by metis
+    thus ?case using trm_prm_simp(7) snd1.IH complete_development.snd1 by metis
+  next
+  case (snd2 B B' A)
+    thus ?case using trm_prm_simp(5, 7) complete_development.snd2 by metis
   next
 qed
 
@@ -2166,12 +2573,32 @@ using assms proof(induction)
   case (app A A' B B')
     thus ?case using fvs_simp(3) Un_mono by metis
   next
+  case (pair A A' B B')
+    thus ?case using fvs_simp(5) Un_mono by metis
+  next
+  case (fst1 P P')
+    thus ?case using fvs_simp(6) by force
+  next
+  case (fst2 A A' B)
+    thus ?case by (simp add: fvs_simp(5, 6) sup.coboundedI1)
+  next
+  case (snd1 P P')
+    thus ?case using fvs_simp(7) by fastforce
+  next
+  case (snd2 B B' A)
+    thus ?case using fvs_simp(5, 7) by fastforce
+  next
 qed
 
 lemma complete_development_fnE:
   assumes "(Fn x T A) >>> X"
   shows "\<exists>A'. (A >>> A') \<and> X = Fn x T A'"
-using assms proof(cases, metis unit_not_fn, metis var_not_fn, metis app_not_fn)
+using assms
+  apply cases
+  apply (metis unit_not_fn, metis var_not_fn, metis app_not_fn)
+  defer
+  apply (metis app_not_fn, metis fn_not_pair, metis fn_not_fst, metis fn_not_fst, metis fn_not_snd, metis fn_not_snd)
+proof -
   case (eta B B' y S)
     hence "T = S" using trm_simp(4) by metis
     from eta consider "x = y \<and> A = B" | "x \<noteq> y \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
@@ -2194,10 +2621,17 @@ using assms proof(cases, metis unit_not_fn, metis var_not_fn, metis app_not_fn)
       next
     qed
   next
-  case (app A A' B B')
-    thus ?thesis using app_not_fn by metis
-  next
 qed
+
+lemma complete_development_pairE:
+  assumes "(Pair A B) >>> X"
+  shows "\<exists>A' B'. (A >>> A') \<and> (B >>> B') \<and> X = Pair A' B'"
+using assms
+  apply cases
+  apply (metis unit_not_pair, metis var_not_pair, metis app_not_pair, metis fn_not_pair, metis app_not_pair)
+  apply (metis trm_simp(5, 6))
+  apply (metis pair_not_fst, metis pair_not_fst, metis pair_not_snd, metis pair_not_snd)
+done
 
 lemma complete_development_exists:
   shows "\<exists>X. (A >>> X)"
@@ -2235,6 +2669,37 @@ proof(induction A rule: trm_induct)
     obtain X where "X = Fn x T A'" by auto
     hence "(Fn x T A) >>> X" using complete_development.eta A' by metis
     thus ?case by auto
+  next
+  case (5 A B)
+    thus ?case using complete_development.pair by blast
+  next
+  case (6 P)
+    consider "\<exists>A B. P = Pair A B" | "\<nexists>A B. P = Pair A B" by auto
+    thus ?case proof(cases)
+      case 1
+        from this obtain A B X where "P = Pair A B" "P >>> X" using 6 by auto
+        from this obtain A' B' where "A >>> A'" "B >>> B'" "X = Pair A' B'"
+          using complete_development_pairE by metis
+        thus ?thesis using complete_development.fst2 `P = Pair A B` by metis
+      next
+      case 2
+        thus ?thesis using complete_development.fst1 6 by blast
+      next
+    qed
+  next
+  case (7 P)
+    consider "\<exists>A B. P = Pair A B" | "\<nexists>A B. P = Pair A B" by auto
+    thus ?case proof(cases)
+      case 1
+        from this obtain A B X where "P = Pair A B" "P >>> X" using 7 by auto
+        from this obtain A' B' where "A >>> A'" "B >>> B'" "X = Pair A' B'"
+          using complete_development_pairE by metis
+        thus ?thesis using complete_development.snd2 `P = Pair A B` by metis
+      next
+      case 2
+        thus ?thesis using complete_development.snd1 7 by blast
+      next
+    qed
   next
 qed
 
@@ -2281,7 +2746,58 @@ using assms proof(induction arbitrary: B rule: complete_development.induct)
     qed
   next
   case (app A A' C C')
-    thus ?case using parallel_reduction_nonredexE parallel_reduction.refl by metis
+    thus ?case using parallel_reduction_nonredexE parallel_reduction.refl by blast
+  next
+  case (pair A A' C C')
+    from `(Pair A C) >> B` and parallel_reduction_pairE obtain A'' C'' where
+      "A >> A''" "C >> C''" "B = Pair A'' C''" by metis
+    thus ?case using pair.IH parallel_reduction.pair by metis
+  next
+  case (fst1 P P')
+    from this obtain P'' where "P >> P''" "B = Fst P''"
+      using parallel_reduction_fstE by blast
+    thus ?case using fst1.IH parallel_reduction.fst1 by metis
+  next
+  case (fst2 A A' C B)
+    from this consider
+      "\<exists>P''. ((Pair A C) >> P'') \<and> B = Fst P''"
+    | "\<exists>A''. (A >> A'') \<and> (B = A'')"
+      using parallel_reduction_fstE[where P="(Pair A C)" and X=B] using trm_simp(5) by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain P'' where "(Pair A C) >> P''" and "B = Fst P''" by auto
+        from this obtain A'' C'' where "P'' = Pair A'' C''" "A >> A''" "C >> C''"
+          using parallel_reduction_pairE by metis
+        thus ?thesis using fst2 parallel_reduction.fst2 `B = Fst P''` by metis
+      next
+      case 2
+        from this obtain A'' where "A >> A''" "B = A''" by metis
+        thus ?thesis using fst2 by metis
+      next
+    qed
+  next
+  case (snd1 P P')
+    from this obtain P'' where "P >> P''" "B = Snd P''"
+      using parallel_reduction_sndE by blast
+    thus ?case using snd1.IH parallel_reduction.snd1 by metis
+  next
+  case (snd2 C A' A B)
+    from this consider
+      "\<exists>P''. ((Pair A C) >> P'') \<and> B = Snd P''"
+    | "\<exists>C''. (C >> C'') \<and> (B = C'')"
+      using parallel_reduction_sndE[where P="(Pair A C)" and X=B] using trm_simp(5, 6) by metis
+    thus ?case proof(cases)
+      case 1
+        from this obtain P'' where "(Pair A C) >> P''" and "B = Snd P''" by auto
+        from this obtain A'' C'' where "P'' = Pair A'' C''" "A >> A''" "C >> C''"
+          using parallel_reduction_pairE by metis
+        thus ?thesis using snd2 parallel_reduction.snd2 `B = Snd P''` by metis
+      next
+      case 2
+        from this obtain C'' where "C >> C''" "B = C''" by metis
+        thus ?thesis using snd2 by metis
+      next
+    qed
   next
 qed
 
@@ -2331,20 +2847,19 @@ qed
 lemma beta_reduction_is_parallel_reduction:
   assumes "A \<rightarrow>\<beta> B"
   shows "A >> B"
-using assms proof(induction)
-  case (beta x T A M)
-    thus ?case using parallel_reduction.beta parallel_reduction.refl by metis
-  next
-  case (app1 A A' B)
-    thus ?case using parallel_reduction.app parallel_reduction.refl by metis
-  next
-  case (app2 A A' B)
-    thus ?case using parallel_reduction.app parallel_reduction.refl by metis
-  next
-  case (fn A A' x T)
-    thus ?case using parallel_reduction.eta by metis
-  next
-qed
+using assms
+  apply induction
+  apply (metis parallel_reduction.beta parallel_reduction.refl)
+  apply (metis parallel_reduction.app parallel_reduction.refl)
+  apply (metis parallel_reduction.app parallel_reduction.refl)
+  apply (metis parallel_reduction.eta)
+  apply (metis parallel_reduction.pair parallel_reduction.refl)
+  apply (metis parallel_reduction.pair parallel_reduction.refl)
+  apply (metis parallel_reduction.fst1)
+  apply (metis parallel_reduction.fst2 parallel_reduction.refl)
+  apply (metis parallel_reduction.snd1)
+  apply (metis parallel_reduction.snd2 parallel_reduction.refl)
+done
 
 lemma parallel_reduction_is_beta_reduction:
   assumes "A >> B"
@@ -2367,6 +2882,25 @@ using assms proof(induction)
   next
   case (app A A' B B')
     thus ?case using beta_reduces_app_left beta_reduces_app_right beta_reduces_composition by metis
+  next
+  case (pair A A' B B')
+    thus ?case using beta_reduces_pair_left beta_reduces_pair_right beta_reduces_composition by metis
+  next
+  case (fst1 P P')
+    thus ?case using beta_reduces_fst by metis
+  next
+  case (fst2 A A' B)
+    thus ?case
+      using beta_reduces_pair_left beta_reduction.fst2 beta_reduces.intros beta_reduces_composition
+      by blast
+  next
+  case (snd1 P P')
+    thus ?case using beta_reduces_snd by metis
+  next
+  case (snd2 B B' A)
+    thus ?case
+      using beta_reduces_pair_left beta_reduction.snd2 beta_reduces.intros beta_reduces_composition
+      by blast
   next
 qed
 
