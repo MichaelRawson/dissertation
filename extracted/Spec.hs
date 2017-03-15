@@ -1,16 +1,22 @@
+module Main where
+
+-- testing frameworks
 import Test.Hspec
 import Test.QuickCheck
 
+-- extracted code modules
 import Arith
 import Fresh
 import Set
 import SimplyTyped
 import PreSimplyTyped
 
+-- converting integers to the natural numbers used in extracted code
 int_nat :: Int -> Nat
 int_nat 0 = Zero_nat
 int_nat n = Suc (int_nat (n - 1))
 
+-- generating arbitrary natural numbers is now possible
 instance Arbitrary Nat where
   arbitrary = do
     n <- choose (1, 100)

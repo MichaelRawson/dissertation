@@ -1,11 +1,14 @@
 module Main where
 
+-- extracted modules
 import Arith
 import PreSimplyTyped
 import SimplyTyped
 
+-- benchmarking framework
 import Criterion.Main
 
+-- generate a term of arbitrary size
 generateTrm :: Int -> Trm Nat
 generateTrm = Abs_trm . generateTrm' Zero_nat
   where
@@ -27,10 +30,12 @@ generateTrm = Abs_trm . generateTrm' Zero_nat
       t2 = generateTrm' vars (size `div` 2)
       in PSnd (PPair t1 t2)
 
+-- infer the type of a term of arbitrary size
 infer' :: Int -> Maybe Type
 infer' = infer ctx . generateTrm where
   ctx n = if n == Zero_nat then Just TUnit else Nothing
 
+-- run the benchmark
 main = defaultMain [
   bgroup "infer"
     [

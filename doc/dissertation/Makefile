@@ -3,7 +3,7 @@
 all: dissertation.pdf
 
 dissertation.pdf: dissertation.tex
-	latexmk -quiet -pdf -pdflatex="pdflatex -interaction=nonstopmode" -use-make $<
+	latexmk -quiet -pdf -pdflatex="pdflatex -interaction=nonstopmode --shell-escape" -use-make $<
 
 clean:
 	latexmk -CA
