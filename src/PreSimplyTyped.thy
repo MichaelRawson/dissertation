@@ -363,8 +363,10 @@ using assms proof(induction M arbitrary: \<pi> \<sigma>)
         hence "\<pi> $ x \<noteq> \<sigma> $ x" using prm_disagreement_def CollectD by fastforce
         moreover have "\<pi> $ x \<notin> ptrm_fvs (\<sigma> \<bullet> A)"
         proof -
-          consider "x \<in> ptrm_fvs A" | "x \<notin> ptrm_fvs A" by auto
-          hence "\<pi> $ x \<notin> \<sigma> {$} ptrm_fvs A" sorry
+          have "y \<in> (ptrm_fvs A) \<Longrightarrow> \<pi> $ x \<noteq> \<sigma> $ y" for y
+            using PFn `\<pi> $ x \<noteq> \<sigma> $ x` prm_apply_unequal prm_disagreement_ext ptrm_fvs.simps(4)
+            by (metis Diff_iff empty_iff insert_iff)
+          hence "\<pi> $ x \<notin> \<sigma> {$} ptrm_fvs A" unfolding prm_set_def by auto
           thus ?thesis using ptrm_prm_fvs by metis
         qed
         moreover have "\<pi> \<bullet> A \<approx> [\<pi> $ x \<leftrightarrow> \<sigma> $ x] \<bullet> \<sigma> \<bullet> A"
@@ -702,30 +704,64 @@ using assms proof(induction X arbitrary: T S \<Gamma>)
   next
   case (PFn x \<tau> A)
     hence *:
-      "\<And>T S \<Gamma>. ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) A = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> A)"
+      "ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) A = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> A)"
+      for T S \<Gamma>
       by metis
 
     consider "x = a" | "x = b" | "x \<noteq> a \<and> x \<noteq> b" by auto
     thus ?case proof(cases)
-      assume "x = a"
-      thus ?thesis
-        using * fun_upd_twist fun_upd_upd prm_unit_action
-        using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
-        by smt
+      case 1
+        hence
+          "ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> PFn x \<tau> A)
+         = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) (PFn b \<tau> ([a \<leftrightarrow> b] \<bullet> A))"
+          using prm_unit_action ptrm_apply_prm.simps(4) by metis
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A) of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          by simp
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>, b \<mapsto> S)) A of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using * by metis
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(b \<mapsto> S, a \<mapsto> T, a \<mapsto> \<tau>)) A of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using `a \<noteq> b` fun_upd_twist fun_upd_upd by metis
+        moreover have "... = ptrm_infer_type (\<Gamma>(b \<mapsto> S, a \<mapsto> T)) (PFn x \<tau> A)"
+          using `x = a` by simp
+        moreover have "... = ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) (PFn x \<tau> A)"
+          using `a \<noteq> b` fun_upd_twist by metis
+        ultimately show ?thesis by metis
       next
-
-      assume "x = b"
-      thus ?thesis
-        using * fun_upd_twist fun_upd_upd prm_unit_action prm_unit_commutes
-        using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
-        by smt
+      case 2
+        hence
+          "ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> PFn x \<tau> A)
+         = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) (PFn a \<tau> ([a \<leftrightarrow> b] \<bullet> A))"
+          using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(4) by metis
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)(a \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A) of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          by simp
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> A) of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using fun_upd_upd fun_upd_twist `a \<noteq> b` by metis
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> \<tau>)) A of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using * by metis
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)(b \<mapsto> \<tau>)) A of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using `a \<noteq> b` fun_upd_upd by metis
+        moreover have "... = ptrm_infer_type (\<Gamma>(b \<mapsto> S, a \<mapsto> T)) (PFn x \<tau> A)"
+          using `x = b` by simp
+        moreover have "... = ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) (PFn x \<tau> A)"
+          using `a \<noteq> b` fun_upd_twist by metis
+        ultimately show ?thesis by metis
       next
-
-      assume "x \<noteq> a \<and> x \<noteq> b"
-      thus ?thesis
-        using * fun_upd_twist prm_unit_inaction
-        using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
-        by smt
+      case 3
+        hence "x \<noteq> a" "x \<noteq> b" by auto
+        hence
+          "ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> PFn x \<tau> A)
+         = ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)) (PFn x \<tau> ([a \<leftrightarrow> b] \<bullet> A))"
+          by (simp add: prm_unit_inaction)
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> S, b \<mapsto> T)(x \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A) of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          by simp
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(x \<mapsto> \<tau>, a \<mapsto> S, b \<mapsto> T)) ([a \<leftrightarrow> b] \<bullet> A) of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using `x \<noteq> a` `x \<noteq> b` fun_upd_twist by metis
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(x \<mapsto> \<tau>, a \<mapsto> T, b \<mapsto> S)) A of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using * by metis
+        moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S, x \<mapsto> \<tau>)) A of None \<Rightarrow> None | Some \<sigma> \<Rightarrow> Some (TArr \<tau> \<sigma>))"
+          using `x \<noteq> a` `x \<noteq> b` fun_upd_twist by metis
+        moreover have "... = ptrm_infer_type (\<Gamma>(a \<mapsto> T, b \<mapsto> S)) (PFn x \<tau> A)" by simp
+        ultimately show ?thesis by metis
       next
     qed
   next
@@ -751,24 +787,25 @@ using assms proof(induction X arbitrary: \<tau> \<Gamma>)
     hence "x \<noteq> b" by simp
     consider "x = a" | "x \<noteq> a" by auto
     thus ?case proof(cases)
-      assume "x = a"
-      hence "[a \<leftrightarrow> b] \<bullet> (PVar x) = PVar b"
-      and   "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PVar x) = Some \<tau>" using prm_unit_action by auto
-      thus ?thesis by auto
+      case 1
+        hence "[a \<leftrightarrow> b] \<bullet> (PVar x) = PVar b"
+        and   "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PVar x) = Some \<tau>" using prm_unit_action by auto
+        thus ?thesis by auto
       next
 
-      assume "x \<noteq> a"
-      hence *: "[a \<leftrightarrow> b] \<bullet> PVar x = PVar x" using `x \<noteq> b` prm_unit_inaction by simp
-      consider "\<exists>\<sigma>. \<Gamma> x = Some \<sigma>" | "\<Gamma> x = None" by auto
-      thus ?thesis proof(cases)
-        assume "\<exists>\<sigma>. \<Gamma> x = Some \<sigma>"
-        from this obtain \<sigma> where "\<Gamma> x = Some \<sigma>" by auto
-        thus ?thesis using * `x \<noteq> a` `x \<noteq> b` by auto
-        next
-
-        assume "\<Gamma> x = None"
-        thus ?thesis using * `x \<noteq> a` `x \<noteq> b` by auto
-      qed
+      case 2
+        hence *: "[a \<leftrightarrow> b] \<bullet> PVar x = PVar x" using `x \<noteq> b` prm_unit_inaction by simp
+        consider "\<exists>\<sigma>. \<Gamma> x = Some \<sigma>" | "\<Gamma> x = None" by auto
+        thus ?thesis proof(cases)
+          assume "\<exists>\<sigma>. \<Gamma> x = Some \<sigma>"
+          from this obtain \<sigma> where "\<Gamma> x = Some \<sigma>" by auto
+          thus ?thesis using * `x \<noteq> a` `x \<noteq> b` by auto
+          next
+  
+          assume "\<Gamma> x = None"
+          thus ?thesis using * `x \<noteq> a` `x \<noteq> b` by auto
+        qed
+      next
     qed
   next
   case (PApp A B)
@@ -782,39 +819,51 @@ using assms proof(induction X arbitrary: \<tau> \<Gamma>)
   case (PFn x \<sigma> A)
     consider "b \<noteq> x \<and> b \<notin> ptrm_fvs A" | "b = x" using PFn.prems by auto
     thus ?case proof(cases)
-      assume "b \<noteq> x \<and> b \<notin> ptrm_fvs A"
-      hence "b \<noteq> x" "b \<notin> ptrm_fvs A" by auto
-      hence *: "\<And>\<tau> \<Gamma>. ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) A = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A)"
-        using PFn.IH assms by metis
-      consider "a = x" | "a \<noteq> x" by auto
-      thus ?thesis proof(cases)
-        assume "a = x"
-        hence "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PFn x \<sigma> A) = ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PFn a \<sigma> A)"
-        and "
-          ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> PFn x \<sigma> A) =
-          ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) (PFn b \<sigma> ([a \<leftrightarrow> b] \<bullet> A))"
-        by (auto simp add: prm_unit_action)
-        thus ?thesis using * ptrm_infer_type.simps(4) fun_upd_upd by metis
-        next
-
-        assume "a \<noteq> x"
-        thus ?thesis
-          using `b \<noteq> x` prm_unit_inaction * fun_upd_twist
-          using ptrm_apply_prm.simps(4) ptrm_infer_type.simps(4)
-          by smt
-        next
-      qed
+      case 1
+        hence "b \<noteq> x" "b \<notin> ptrm_fvs A" by auto
+        hence *: "\<And>\<tau> \<Gamma>. ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) A = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A)"
+          using PFn.IH assms by metis
+        consider "a = x" | "a \<noteq> x" by auto
+        thus ?thesis proof(cases)
+          case 1
+            hence "ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PFn x \<sigma> A) = ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PFn a \<sigma> A)"
+            and "
+              ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> PFn x \<sigma> A) =
+              ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) (PFn b \<sigma> ([a \<leftrightarrow> b] \<bullet> A))"
+            by (auto simp add: prm_unit_action)
+            thus ?thesis using * ptrm_infer_type.simps(4) fun_upd_upd by metis
+          next
+  
+          case 2
+            thm *
+            hence
+              "ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> PFn x \<sigma> A)
+             = ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)) (PFn x \<sigma> ([a \<leftrightarrow> b] \<bullet> A))"
+              using `b \<noteq> x` by (simp add: prm_unit_inaction)
+            moreover have "... = (case ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>, x \<mapsto> \<sigma>)) ([a \<leftrightarrow> b] \<bullet> A) of None \<Rightarrow> None | Some \<sigma>' \<Rightarrow> Some (TArr \<sigma> \<sigma>'))"
+              by simp
+            moreover have "... = (case ptrm_infer_type (\<Gamma>(x \<mapsto> \<sigma>, b \<mapsto> \<tau>)) ([a \<leftrightarrow> b] \<bullet> A) of None \<Rightarrow> None | Some \<sigma>' \<Rightarrow> Some (TArr \<sigma> \<sigma>'))"
+              using `b \<noteq> x` fun_upd_twist by metis
+            moreover have "... = (case ptrm_infer_type (\<Gamma>(x \<mapsto> \<sigma>, a \<mapsto> \<tau>)) A of None \<Rightarrow> None | Some \<sigma>' \<Rightarrow> Some (TArr \<sigma> \<sigma>'))"
+              using * by metis
+            moreover have "... = (case ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>, x \<mapsto> \<sigma>)) A of None \<Rightarrow> None | Some \<sigma>' \<Rightarrow> Some (TArr \<sigma> \<sigma>'))"
+              using `a \<noteq> x` fun_upd_twist by metis
+            moreover have "... = ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)) (PFn x \<sigma> A)"
+              by simp
+            ultimately show ?thesis by metis
+          next
+        qed
       next
 
-      assume "b = x"
-      hence "a \<noteq> x" using assms by auto
-      have "
-        ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)(b \<mapsto> \<sigma>)) A =
-        ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)(a \<mapsto> \<sigma>)) ([a \<leftrightarrow> b] \<bullet> A)
-      " using ptrm_infer_type_swp_types using `a \<noteq> b` fun_upd_twist by metis
-      thus ?thesis
-        using `b = x` prm_unit_action prm_unit_commutes
-        using ptrm_infer_type.simps(4) ptrm_apply_prm.simps(4) by metis
+      case 2
+        hence "a \<noteq> x" using assms by auto
+        have "
+          ptrm_infer_type (\<Gamma>(a \<mapsto> \<tau>)(b \<mapsto> \<sigma>)) A =
+          ptrm_infer_type (\<Gamma>(b \<mapsto> \<tau>)(a \<mapsto> \<sigma>)) ([a \<leftrightarrow> b] \<bullet> A)
+        " using ptrm_infer_type_swp_types using `a \<noteq> b` fun_upd_twist by metis
+        thus ?thesis
+          using `b = x` prm_unit_action prm_unit_commutes
+          using ptrm_infer_type.simps(4) ptrm_apply_prm.simps(4) by metis
       next
     qed
   next

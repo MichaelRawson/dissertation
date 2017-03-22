@@ -9,7 +9,7 @@ class fresh =
 instantiation nat :: fresh
 begin
   definition fresh_in_nat :: "nat set \<Rightarrow> nat" where
-    "fresh_in_nat S \<equiv> Max S + 1"
+    [code]: "fresh_in_nat S \<equiv> Max S + 1"
 
   instance proof
     fix S :: "nat set"
