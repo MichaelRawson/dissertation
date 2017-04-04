@@ -1,0 +1,43 @@
+name:                infer
+version:             0.1.0.0
+homepage:            https://github.com/githubuser/infer#readme
+author:              Michael Rawson
+maintainer:          mr644@cam.ac.uk
+category:            Math
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Arith, Fresh, Set, SimplyTyped, PreSimplyTyped, Utils
+  other-modules:       Fun, Lattices_Big, List, Orderings, Product_Type, Option
+  build-depends:       base >= 4.7 && < 5, containers, QuickCheck, deepseq
+  default-extensions:  ExplicitForAll, StandaloneDeriving, FlexibleInstances, DeriveGeneric, DeriveAnyClass
+  default-language:    Haskell2010
+  ghc-options:         -O3
+
+test-suite test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base, infer, QuickCheck, hspec
+  default-language:    Haskell2010
+
+executable samples
+  hs-source-dirs:      samples
+  main-is:             Samples.hs
+  build-depends:       base, infer, QuickCheck
+  default-language:    Haskell2010
+
+benchmark bench
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      bench
+  main-is:             Bench.hs
+  build-depends:       base, infer, containers, criterion, deepseq
+  default-extensions:  BangPatterns
+  default-language:    Haskell2010
+  ghc-options:         -O3
+
+source-repository head
+  type:                git
+  location:            https://github.com/MichaelRawson/dissertation
