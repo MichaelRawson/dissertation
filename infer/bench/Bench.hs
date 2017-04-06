@@ -1,6 +1,5 @@
 module Main where
 
-import Control.DeepSeq (force)
 import Data.List (break)
 import qualified Data.Map as Map
 
@@ -54,7 +53,7 @@ main = do
   defaultMain [bgroup "infer" benchmarks]
 
   where
-  underTest = inferMap Map.empty
+  underTest = inferMap emptyContext --infer (convertContext emptyContext)
   readBench line = case break (== '\t') line of
     (l, r) -> let
       term = read l :: Trm Nat

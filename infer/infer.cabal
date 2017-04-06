@@ -14,7 +14,6 @@ library
   build-depends:       base >= 4.7 && < 5, containers, QuickCheck, deepseq
   default-extensions:  ExplicitForAll, StandaloneDeriving, FlexibleInstances, DeriveGeneric, DeriveAnyClass
   default-language:    Haskell2010
-  ghc-options:         -O3
 
 test-suite test
   type:                exitcode-stdio-1.0
@@ -26,17 +25,15 @@ test-suite test
 executable samples
   hs-source-dirs:      samples
   main-is:             Samples.hs
-  build-depends:       base, infer, QuickCheck
+  build-depends:       base, infer, containers
   default-language:    Haskell2010
 
 benchmark bench
   type:                exitcode-stdio-1.0
   hs-source-dirs:      bench
   main-is:             Bench.hs
-  build-depends:       base, infer, containers, criterion, deepseq
-  default-extensions:  BangPatterns
+  build-depends:       base, infer, containers, criterion
   default-language:    Haskell2010
-  ghc-options:         -O3
 
 source-repository head
   type:                git
