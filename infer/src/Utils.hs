@@ -9,6 +9,7 @@ import qualified Data.Set as Set
 import Test.QuickCheck
 
 import Arith
+import qualified Orderings
 import Set
 import Fresh
 import PreSimplyTyped
@@ -16,17 +17,17 @@ import SimplyTyped
 
 
 -- instances not provided with the extracted code
-deriving instance Eq Nat
-deriving instance Ord Nat
+instance Eq Nat where
+  (==) = equal_nat
+instance Ord Nat where
+  (<=) = Orderings.less_eq
 deriving instance Show Nat
 deriving instance Read Nat
 deriving instance Generic Nat
 deriving instance NFData Nat
-
 instance Fresh Nat where
   fresh_in = fresh_in_nat
 
-deriving instance Eq Type
 deriving instance Show Type
 deriving instance Read Type
 deriving instance Generic Type
