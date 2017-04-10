@@ -28,6 +28,7 @@ deriving instance NFData Nat
 instance Fresh Nat where
   fresh_in = fresh_in_nat
 
+deriving instance Eq Type
 deriving instance Show Type
 deriving instance Read Type
 deriving instance Generic Type
@@ -103,9 +104,6 @@ terms n
       4 -> PFst <$> terms (n - 1)
       5 -> PSnd <$> terms (n - 1)
 
-instance Arbitrary Term where 
-  arbitrary = sized terms
-
 illTypedTerms :: Context -> Int -> Gen Term
 illTypedTerms ctx n = terms n `suchThat` (isNothing . infer' ctx)
 
@@ -162,6 +160,13 @@ notArrowTypes ctx n = (wellTypedTerms ctx n) `suchThat` (not . isFn)
   where
   isFn m = case infer' ctx m of
     Just (TArr _ _) -> True
+    _ -> False
+
+notPairTypes :: Context -> Int -> Gen Term
+notPairTypes ctx n = (wellTypedTerms ctx n) `suchThat` (not . isPair)
+  where
+  isPair m = case infer' ctx m of
+    Just (TPair _ _) -> True
     _ -> False
 
 -- typing environments

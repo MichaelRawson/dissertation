@@ -142,6 +142,30 @@ main = hspec $ do
         forAll (sized $ wellTypedTerms c) $ \r ->
         infer' c (PPair l r) `shouldBe` TPair <$> infer' c l <*> infer' c r
 
+  describe "inference of projection" $ do
+    it "propagates type errors" $ do
+      property $
+        forAll contexts $ \c ->
+        forAll (sized $ illTypedTerms c) $ \p ->
+          (infer' c (PFst p) `shouldBe` failure) .&.
+          (infer' c (PSnd p) `shouldBe` failure)
+
+    it "undefined for non-pair application" $ do
+      property $
+        forAll contexts $ \c ->
+        forAll (sized $ notPairTypes c) $ \m ->
+          (infer' c (PFst m) `shouldBe` failure) .&.
+          (infer' c (PSnd m) `shouldBe` failure)
+
+    it "infers correct type" $ do
+      property $
+        forAll contexts $ \c ->
+        forAll (sized $ wellTypedTerms c) $ \m1 ->
+        forAll (sized $ wellTypedTerms c) $ \m2 ->
+          let p = PPair m1 m2 in
+          (infer' c (PFst p) `shouldBe` infer' c m1) .&.
+          (infer' c (PSnd p) `shouldBe` infer' c m2)
+
   describe "testing assumptions" $ do
     it "ill-typed terms are ill-typed" $ do
       property $
