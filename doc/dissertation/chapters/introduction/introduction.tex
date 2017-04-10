@@ -1,30 +1,37 @@
 \chapter{Introduction}
-This dissertation describes my part II project for the Computer Science Tripos, entitled \emph{Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed \(\lambda\)-Calculus}.
+The following describes my part II project for the Computer Science Tripos, entitled \emph{Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed \(\lambda\)-Calculus}.
 The project consists of a series of machine-checked proofs about a typed \(\lambda\)-calculus, a type inference algorithm for the calculus, and a checked proof of correctness of the algorithm.
 
 \section{Motivation}
-After stating my interest in typed \(\lambda\)-calculi and computerised implementations thereof, my supervisor suggested that I implement a calculus, then prove it correct.
-Proofs about systems involving names are famously fiddly, so a proof-checker would be used to ensure the proofs asserting the implementation correct were themselves sound.
+In order to exercise my interest in formal logic and types, my supervisor suggested that I implement a typed \(\lambda\)-calculus, operations upon the calculus, and a type inference algorithm, then prove correctness properties about these.
+Proofs about language semantics can include a lot of sub-cases and be difficult to argue correctly, so it was decided an automated proof-checker would be used to verify these proofs.
 
 Therefore, the project had several principle motivations:
 \begin{itemize}
 \item
-produce a high-quality implementation of a typed calculus, encoded in a proof assistant
+Produce a bug-free implementation of the calculus, operations, and type inference, encoded in a proof-checker.
 \item
-ensure the implementation is correct --- informal pen-and-paper arguments are prone to error, so I had to provide formal, verified proofs in the assistant
+Ensure the implementation is correct by providing verified formal proofs with the help of the checker.
 \item
-extract working code that is proven to be correct
+Extract working code from the checker that is known to be correct.
 \end{itemize}
+
 \section{Related Computer Science}
-The project draws on a wide-variety of areas in Computer Science: type theory, logic, formal verification and even HCI.
+The project draws on a wide variety of areas in Computer Science: \(\lambda\)-calculi, types, formal logic, and verified reasoning.
 
-By verifying a \emph{typed} calculus, the project required some theory about types, including proving properties such as the preservation of types under \(\beta\)-reduction.
-Verification itself requires some knowledge (and precise application) of logic, despite the best efforts of the proof-checking software.
-Additionally, the approaches taken with informal proof versus those with verified proof remain extremely different: while largely the informal proof's structure remains in a formal proof, fiddly details require some knowledge of common verification techniques and some specialist software knowledge.
-
-Finally, one aim of the project was to be easy to use and modify by others.
-The exact internal presentation of the calculus used in the verification does not usually matter, but if external users unfamiliar with the implementation details are to use it effectively, the presentation must include several niceties that might not otherwise be used.
-Picking the presentation of the calculus that minimises the effort required to use it required some thought about usability and interactions users might have.
+By implementing and verifying a \emph{typed} calculus, the project required some theory about types in addition to the \(\lambda\)-calculus, including proving properties such as the preservation of types under \(\beta\)-reduction.
+Verification itself requires some knowledge (and precise application) of formal logic, as an intuitive argument will frequently not satisfy the checker.
+Finally, the proof strategy taken with informal proof versus those with verified proof remain different: while theorem-proving technology has improved so that an informal proof's structure largely remains in a verified proof, details that a human reader would discount as intuitive are still often not so to the checker.
 
 \section{Previous Work}
-Not sure what to put in this section. Lots of previous work!
+Clearly for such a theoretical project, much of the work involved is standing on the shoulders of giants: Church's \(\lambda\)-calculus has a distinguished history\cite{lambda-history}, as does type theory since Russell's original \emph{theory of types}\cite{russell}.
+Formal verification also has a great deal of previous work that can be re-used: the majority of proof checkers are now proof \emph{assistants}, including automation tools, tactics and theorem provers (at least for small deductive steps) and large existing libraries of formalised mathematics.
+As an example, the \textsc{Mizar} system\cite{mizar} contains in its distribution a library of over 50,000 proofs.
+
+There is also more specific work that pertains directly to my project.
+Several implementations of typed \(\lambda\)-calculus have been implemented and verified (see for instance the \textsc{PoplMark} challenge\cite{poplmark}) using an assortment of techniques, tools, and proofs, all of which can help with my project.
+
+\subsection{A Note on Difficulty and Plagiarism}
+Given the large amount of relevant previous work, the mildly-sceptical reader might say that my project is not particularly difficult, and the hardened sceptic would claim that it amounts to plagiarism.
+I hope the examiners will recognise that the number of variables (exact details of the type system, approach to representation, tooling, proof style\ldots) provides significant scope for variation --- to the best of my knowledge, there are no existing implementations that are similar to my project in this respect.
+Combining these variable factors into a project also produces sufficient difficulty for it to be as new research: all proofs were sketched first with pen-and-paper, then transcribed (in painstaking detail, as verification demands) into the proof assistant.
