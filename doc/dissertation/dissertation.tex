@@ -1,5 +1,8 @@
 \documentclass{scrreprt}
-\usepackage{minted}
+\usepackage[outputdir=output]{minted}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{subcaption}
 
 \title{
  {Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed $\lambda$-Calculus}\\
@@ -10,12 +13,16 @@
 
 \usepackage[backend=bibtex,sorting=none]{biblatex}
 \bibliography{dissertation}
+
+% helpful macros
+\newcommand{\infer}{\mathrm{infer}}
+\newcommand{\unit}{\mathrm{unit}}
+\newcommand{\wrap}[1]{\left(#1\right)}
+
 \begin{document}
 \maketitle
 \tableofcontents
 
-\input{introduction}
-\input{preparation}
-\input{evaluation}
+\input{chapters/introduction/introduction}
 \printbibliography
 \end{document}

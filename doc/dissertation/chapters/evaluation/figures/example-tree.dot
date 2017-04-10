@@ -1,0 +1,22 @@
+digraph example {
+        a[label="PFst"];
+	 b[label="PApp"];
+	  c[label="PFn"];
+	   d[label="x", shape=box];
+           e[label="TUnit", shape=box];
+	   f[label="PPair"];
+	    g[label="PVar"];
+	     h[label="x", shape=box];
+	    i[label="PUnit"];
+	  j[label="PUnit"];
+
+	a -> b;
+	b -> c;
+	c -> d;
+	c -> e;
+	c -> f;
+	f -> g;
+	g -> h;
+	f -> i;
+	b -> j;
+}

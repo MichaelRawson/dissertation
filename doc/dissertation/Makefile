@@ -1,9 +1,9 @@
-.PHONY: dissertation.pdf all clean
+.PHONY: clean
 
 all: dissertation.pdf
 
-dissertation.pdf: dissertation.tex
-	latexmk -quiet -pdf -pdflatex="pdflatex -interaction=nonstopmode --shell-escape" -use-make $<
+dissertation.pdf: chapters/evaluation/evaluation.tex dissertation.tex dissertation.bib
+	latexmk -silent -halt-on-error -pdf -pdflatex="pdflatex -interaction=nonstopmode --shell-escape" -outdir=output dissertation.tex
 
 clean:
 	latexmk -CA
