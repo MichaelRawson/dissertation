@@ -1,5 +1,238 @@
 \chapter{Preparation}
-After I identified the main goals of the project, the coarse proposal needed to be refined in order to be more precise about my aims and drive the project development.
-\section{Refining the Proposal}
-\section{The Problem of \(\alpha\)-Equivalence}
-\section{Tools: \emph{Isabelle}}
+After identifying the main goals of the project, these coarse requirements have to be refined, in order to be more precise about my aims and drive the project development.
+The result of this is a set of \emph{requirements} that can then be analysed to predict problems and measure success.
+Once any problems have been resolved, work can begin on implementation.
+
+\section{Initial Choices}
+Before the project could begin, several choices were made to make the project plan more concrete and define the problem space more accurately.
+The first choice presented was choosing a proof assistant for use encoding the calculus.
+My supervisor suggested Isabelle\cite{isabelle}, a proof assistant with strong links to the university.
+
+The other choice that I made is the exact type system I would implement for my theory.
+I chose to implement the simply-typed calculus (arguably the simplest), leaving any extensions until later in the project to allow for delays.
+
+\section{Background Theory}
+Some mathematical theory is required to state the problem more precisely, and can be used to direct the refinement of requirements.
+
+\subsection{\(\lambda\)-Calculus}
+The \(\lambda\)-calculus\cite{lambda-overview} is a formal system of computation represented by operations on an set of terms.
+\begin{definition}
+Terms \(M\) are inductively defined as follows.
+\begin{enumerate}
+\item
+A variable, \(x\), is always a term.
+These may be sub-categorised to be \emph{bound} if some \emph{binder} in an expression binds them, or \emph{free}, if there is no such binder.
+\item
+If \(M\) is a term, abstractions \(\lambda x.M\) are also terms.
+This represents an anonymous function from terms to terms in the calculus (i.e. taking an argument \(x\) and returning \(M(x)\)), and therefore \emph{binds} \(x\) in \(M\).
+\item
+If \(M\) and \(N\) are terms, applying \(M\) to \(N\) is also a term, \(\wrap{M\ N}\).
+This represents function application in the calculus, the dual of function abstraction.
+\end{enumerate}
+\end{definition}
+
+This is relatively easy to define programmatically, as it can be represented with an algebraic datatype.
+For instance, in Standard ML:
+\begin{minted}{SML}
+datatype 'a trm =
+    Var of 'a
+  | Fn  of ('a * 'a trm)
+  | App of ('a trm * 'a trm)
+\end{minted}
+
+\subsection{The Problem of \(\alpha\)-Equivalence}
+Unfortunately, this representation with names and binders has a problem: frequently, it is convenient to reason that e.g. \(\lambda x.x\) and \(\lambda y.y\) are the same: they do, after all, compute equal values on all inputs.
+
+However, structurally-speaking they are not equal: the string \(x\) is not the same as \(y\).
+This notion of two terms behaving the same regardless of using different names is \emph{\(\alpha\)-equivalence}.
+\begin{definition}
+The \(\alpha\)-equivalence relation \(\equiv_\alpha\) is the least congruence on terms such that
+\[
+\lambda x.M \equiv_\alpha \lambda y.M'
+\]
+where y does not occur free in \(M\), and \(M'\) is \(M\) with \(x\) substituted for \(y\) in a capture-avoiding fashion.
+\end{definition}
+
+Such a definition can be implemented in an assistant, then used whenever a statement of equivalence is required.
+It also conveniently forms an equivalence relation.
+It is nonetheless rather un-ergonomic and inefficient to carry such an assumption around, and assistants often reason better about actual equality than arbitrary equivalence relations.
+
+\subsubsection{Quotient Types}
+This problem can be solved by using \emph{quotient types}.
+\begin{definition}
+A quotient type \(Q\) consists of a base type \(R\), an equivalence relation \(\sim\) on \(R\), and functions \(\mathrm{Abs} : R \to Q\) and \(\mathrm{Rep} : Q \to R\).
+Items \(q_1 : Q\) and \(q_2 : Q\) are equal iff \(Rep\ q_1 \sim Rep\ q_2\).
+\end{definition}
+Isabelle provides this mechanism via a \texttt{quotient\_datatype} command\cite{isabelle-quotient}, which takes \(R\) and \(\sim\) and produces \(Q\), \(\mathrm{Abs}\) and \(\mathrm{Rep}\).
+It also provides ``lifting'' and ``transfer'' operations, useful for lifting operations from the base type to the quotient type, and transferring proof obligations from the quotient type to the base type.
+
+This allows the definition of a type for terms modulo \(\alpha\)-equivalence as required by defining a datatype for pre-terms without a notion of equivalence (as before), then producing the new type as a quotient type over the \(\alpha\)-equivalence relation.
+
+\subsection{Other Approaches to Names}
+While we can now use equality directly instead of an equivalence relation, the definition of the equivalence relation is quite awkward to use.
+There are several alternative ways of handling names and \(\alpha\)-equivalence, the most prominent being deBruijn indices, Higher-Order Abstract Syntax (or HOAS for short), and nominal techniques.
+
+DeBruijn indices remove names altogether and instead uses natural numbers for bound variables to refer to the number of binders between the variable and the binder that bound it.
+For instance, the constant function
+\[
+\lambda x. \lambda y. x
+\]
+becomes
+\[
+\lambda.\lambda. 1
+\]
+using deBruijn indices.
+Using this approach, \(\alpha\)-equivalence is now simply equality, as all bound names have been removed.
+The downside of this approach is that actually using this representation for proofs is quite difficult and unintuitive, and it conflicts with the general approach used in informal proof.
+
+Higher-Order Abstract Syntax uses the environment's (in this case Isabelle's) own binder implementation (i.e. what it uses internally for its own function objects) to handle binding.
+The datatype defined earlier for the calculus would then become
+\begin{minted}{SML}
+datatype 'a trm =
+    Var of 'a
+  | Fn  of ('a -> 'a trm)
+  | App of ('a trm * 'a trm)
+\end{minted}
+and e.g. the constant function would be represented as \mintinline{SML}{Fn (fn x => Fn (fn y => x))}.
+While this implementation neatly avoids many of the implementation issues of other approaches, it is not always possible to show certain properties of names with this representation\cite{HOAS}.
+
+Finally, the techniques under the heading of ``nominal methods'' are a relatively-new approach of dealing with names, which importantly retain the explicit representation of names, as in the na\"ive version above.
+The technique uses a different definition of \(\alpha\)-equivalence based on \emph{swapping} (rather than substituting) names in a given expression\cite{nominal}.
+This was the approach that I chose.
+
+\subsubsection{Swappings}
+\begin{definition}
+A swapping \([x \swap y]\) is a pair of variables.
+\end{definition}
+\begin{definition}
+The effect of a swapping on a term, \([x \swap y] \cdot M\) is defined as
+\[
+[x \swap y] \cdot M =
+\begin{cases}
+y & M = x\\
+x & M = y\\
+z & M = z, z \notin \{x, y\}\\
+\lambda ([x \swap y] \cdot z). \wrap{[x \swap y] \cdot N} & M = \lambda z.N\\
+\wrap{[x \swap y] \cdot A}\ \wrap{[x \swap y] \cdot B} & M = \wrap{A\ B}
+\end{cases}
+\]
+\end{definition}
+An equivalence \(\sim\) can be defined using only this operation, as shown in figure \ref{fig:nominal}.
+\begin{figure}
+\begin{mathpar}
+\inferrule[var]
+ { }
+ {x \sim x}
+
+\inferrule[app]
+ {A \sim C \\ B \sim D}
+ {\wrap{A\ B} \sim \wrap{C\ D}}
+
+\inferrule[fn]
+ {[z \swap x] \cdot M \sim [z \swap y] \cdot N \\ z \# M \\ z \# N}
+ {\lambda x.M \sim \lambda y.N}
+\end{mathpar}
+\caption{an equivalence defined in terms of swappings}
+\label{fig:nominal}
+\end{figure}
+It can further be shown\cite{nominal} that \(\sim\) is precisely the same as \(\equiv_\alpha\), and hence can be used in place of it.
+
+Therefore my strategy for representing terms modulo \(\alpha\)-equivalence will be to develop a theory of swappings, then use it to argue that \(\sim\) is an equivalence relation, and finally produce a new type as a quotient of the concrete type with respect to \(\sim\).
+
+\subsubsection{Freshness}
+Looking at the \textsc{Fn} rule of figure \ref{fig:nominal}, the preconditions \(z \# M\) and \(z \# N\) merit explanation: \(x \# M\) is the statement ``x is \emph{fresh} for M''.
+
+\begin{definition}
+An element \(x\) is fresh in a set \(S\) iff \(x \notin S\).
+Moreover, a variable \(x\) is fresh for a term \(M\) iff \(x\) is fresh for the free variables of \(M\).
+\end{definition}
+
+The idea of picking a fresh item for a given set is common in proofs about the nominal approach to binding.
+As a result, I also need a verified implementation of freshness to argue neatly about binding in Isabelle.
+
+\subsection{Simple Types}
+The untyped calculus can be extended to include a type system without any effect on the theory of names it uses: a \emph{type} is simply added to each binder, so \(\lambda x.M\) becomes \(\lambda (x:T).M\), for an arbitrary \(T\).
+
+\begin{definition}
+Simple types \(\tau\) are either
+\begin{enumerate}
+\item
+A (fixed) type variable, say \(\alpha\) or \(\beta\).
+\item
+An arrow type \(\tau \to \tau\) from one type to another.
+\end{enumerate}
+\end{definition}
+
+Adding simple types to the binders of the untyped calculus produces the \emph{simply-typed} \(\lambda\)-calculus.
+The typing relation \(\Gamma \vdash M : \tau\) is given inductively in figure \ref{fig:typing}.
+\(\Gamma\) here is a typing relation: a partial function from variables to types.
+
+\begin{figure}
+\begin{mathpar}
+\inferrule[var]
+ {\Gamma(x) = \tau}
+ {\Gamma \vdash x : \tau}
+
+\inferrule[fn]
+ {\Gamma\{x \mapsto \tau\} \vdash M : \sigma}
+ {\Gamma \vdash \lambda (x : \tau). M : \tau \to \sigma}
+
+\inferrule[app]
+ {\Gamma \vdash M : \tau \to \sigma \\ \Gamma \vdash N : \tau}
+ {\Gamma \vdash \wrap{M\ N} : \sigma}
+\end{mathpar}
+\caption{typing rules for the simply-typed calculus}
+\label{fig:typing}
+\end{figure}
+
+One advantage of the simply-typed calculus is that type inference is an extremely  simple algorithm, with no unification steps or other complexity that comes with more advanced type schemes.
+A type inference algorithm \(\infertype(\Gamma, M)\) can be described recursively by
+\[
+\infertype\wrap{\Gamma, M} =
+\begin{cases}
+\Gamma(x) & M = x\\
+\tau \to \infertype\wrap{\Gamma\{x \mapsto \tau\}, N} & M = \lambda (x : \tau). N\\
+\mathrm{apply}\wrap{\infertype\wrap{\Gamma, A}, \infertype\wrap{\Gamma, B}} & M = \wrap{A\ B}
+\end{cases}
+\]
+where \(\mathrm{apply}\wrap{\tau \to \sigma, \tau}\) produces \(\sigma\) for any \(\tau, \sigma\), and all other input is undefined.
+
+Note that this algorithm produces the same type for all terms in an \(\alpha\)-equivalence class, and hence can be lifted to work on equivalence classes, rather than concrete terms.
+\section{Requirements}
+Moving from coarse requirements to finer ones is now more straightforward, as a number of constraints have been imposed by the mathematics.
+Implementation in Isabelle can proceed as follows:
+\begin{itemize}
+\item
+Develop formalised work about freshness and swappings to support later developments.
+\item
+Define a datatype for representing simple types.
+\item
+Define the datatype of \emph{pre-terms}, the type of terms before the \(\alpha\)-equivalence quotient.
+\item
+Define the effect of swappings on pre-terms.
+\item
+Define the \(\alpha\)-equivalence relation
+\item
+Prove sufficent lemmas to show it is an equivalence relation.
+\item
+Define a type inference algorithm on pre-terms and show that it is invariant under \(\alpha\)-equivalence.
+\item
+Produce a quotient type of \emph{terms} from the pre-terms and the equivalence relation.
+\item
+Lift any required definitions over the quotient, along with the type inference algorithm.
+\item
+Prove any required lemmas by reference to the same lemmas upon pre-terms.
+\item
+Define a typing relation inductively on the terms.
+\item
+Argue properties of this typing relation, such as the subject reduction property.
+\item
+Show that the inference algorithm is sound and complete with respect to the typing relation.
+\item
+Conclude that the implementation is verified and extract code.
+\end{itemize}
+
+\section{Starting Point}
+As stated in my original project proposal, I was familiar with the majority of the theory required for implementing the \(\lambda\)-calculus and type theory in the project.
+I was not, however, familiar with the number of neat approaches to name binding described above, or with Isabelle itself.
+I am pleased to say that I have now learned a lot more about both of these topics.

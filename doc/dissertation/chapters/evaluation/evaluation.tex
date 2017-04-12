@@ -93,7 +93,7 @@ QuickCheck provides generators for all basic types, and some derived ones via a 
 I wrote generators for natural numbers, types, typing contexts, and pre-terms, and also for ill-typed and well-typed terms.
 
 With these generators, I then wrote tests that asserted, in the context of various categories, the following propositions --- note the similarity in structure to the inductive typing judgements.
-Write \(\infer(\Gamma, M)\) for the result of running the inference algorithm with context \(\Gamma\) on term \(M\), and use \(\bot\) to indicate a type error.
+Write \(\infertype(\Gamma, M)\) for the result of running the inference algorithm with context \(\Gamma\) on term \(M\), and use \(\bot\) to indicate a type error.
 Consider all free variables universally quantified (i.e. randomly-generated in the test).
 \begin{itemize}
 \item fresh variables:
@@ -102,44 +102,44 @@ Consider all free variables universally quantified (i.e. randomly-generated in t
 \end{itemize}
 \item unit inference:
 \begin{itemize}
-\item \(\infer(\Gamma, \unit) = 0\)
+\item \(\infertype(\Gamma, \unit) = 0\)
 \end{itemize}
 \item variable inference:
 \begin{itemize}
-\item any variable \(x\) satisfies \(\infer(\emptyset, x) = \bot\)
-\item if \(x\) is fresh in the domain of \(\Gamma\), \(\infer(\emptyset, x) = \bot\)
-\item if there is a \(\tau\) such that \(\Gamma(x) = \tau\), then \(\infer(\emptyset, x) = \tau\)
+\item any variable \(x\) satisfies \(\infertype(\emptyset, x) = \bot\)
+\item if \(x\) is fresh in the domain of \(\Gamma\), \(\infertype(\emptyset, x) = \bot\)
+\item if there is a \(\tau\) such that \(\Gamma(x) = \tau\), then \(\infertype(\emptyset, x) = \tau\)
 \end{itemize}
 \item \(\lambda\)-inference:
 \begin{itemize}
-\item if \(\infer(\Gamma\{x \mapsto \tau\}, M) = \bot\), then \(\infer(\Gamma, \lambda (x : \tau). M) = \bot\)
+\item if \(\infertype(\Gamma\{x \mapsto \tau\}, M) = \bot\), then \(\infertype(\Gamma, \lambda (x : \tau). M) = \bot\)
 \item for all variables \(x\), \(y\), \(x \neq y\) implies that \(y\) is not bound in the expression \(\lambda (x : \tau). y\)
-\item if \(\infer(\Gamma\{x \mapsto \tau\}, M) = \sigma\), then \(\infer(\Gamma,\lambda (x : \tau). M) = \tau \to \sigma\)
+\item if \(\infertype(\Gamma\{x \mapsto \tau\}, M) = \sigma\), then \(\infertype(\Gamma,\lambda (x : \tau). M) = \tau \to \sigma\)
 \end{itemize}
 \item application inference:
 \begin{itemize}
-\item if \(\infer(\Gamma, M) = \bot\), \(\infer(\Gamma, (M\ N)) = \bot\)
-\item also, if \(\infer(\Gamma, N) = \bot\), \(\infer(\Gamma, (M\ N)) = \bot\)
-\item if \(\infer(\Gamma, M) = T\) and \(T\) is not of the form \(\tau \to \sigma\), then \(\infer(\Gamma, (M\ N)) = \bot\)
-\item if \(T\) \emph{is} of the form \(\tau \to \sigma\), but \(\infer(\Gamma, N) \neq \tau\), then \(\infer(\Gamma, (M\ N)) = \bot\)
-\item finally, if \(\infer(\Gamma, N) = \tau\), then \(\infer(\Gamma, (M\ N)) = \sigma\)
+\item if \(\infertype(\Gamma, M) = \bot\), \(\infertype(\Gamma, (M\ N)) = \bot\)
+\item also, if \(\infertype(\Gamma, N) = \bot\), \(\infertype(\Gamma, (M\ N)) = \bot\)
+\item if \(\infertype(\Gamma, M) = T\) and \(T\) is not of the form \(\tau \to \sigma\), then \(\infertype(\Gamma, (M\ N)) = \bot\)
+\item if \(T\) \emph{is} of the form \(\tau \to \sigma\), but \(\infertype(\Gamma, N) \neq \tau\), then \(\infertype(\Gamma, (M\ N)) = \bot\)
+\item finally, if \(\infertype(\Gamma, N) = \tau\), then \(\infertype(\Gamma, (M\ N)) = \sigma\)
 \end{itemize}
 \item pair inference:
 \begin{itemize}
-\item if \(\infer(\Gamma, M) = \bot\), then \(\infer(\Gamma, (M, N)) = \bot\)
-\item also, if \(\infer(\Gamma, N) = \bot\), then \(\infer(\Gamma, (M, N)) = \bot\)
-\item if \(\infer(\Gamma, M) = \tau_1\) and \(\infer(\Gamma, N) = \tau_2\), then \(\infer(\Gamma, (M, N)) = \tau_1 \times \tau_2\)
+\item if \(\infertype(\Gamma, M) = \bot\), then \(\infertype(\Gamma, (M, N)) = \bot\)
+\item also, if \(\infertype(\Gamma, N) = \bot\), then \(\infertype(\Gamma, (M, N)) = \bot\)
+\item if \(\infertype(\Gamma, M) = \tau_1\) and \(\infertype(\Gamma, N) = \tau_2\), then \(\infertype(\Gamma, (M, N)) = \tau_1 \times \tau_2\)
 \end{itemize}
 \item projection inference:
 \begin{itemize}
-\item if \(\infer(\Gamma, M) = \bot\), then \(\infer(\Gamma, \pi_1(M)) = \bot\) and \(\infer(\Gamma, \pi_2(M)) = \bot\)
-\item if \(\infer(\Gamma, M) = T\), but \(T\) is not of the form \(\tau_1 \times \tau_2\), then \(\infer(\Gamma, \pi_1(M)) = \bot\) and \(\infer(\Gamma, \pi_2(M)) = \bot\)
-\item if \(T\) is of the form \(\tau_1 \times \tau_2\), then \(\infer(\Gamma, \pi_1(M)) = \tau_1\) and \(\infer(\Gamma, \pi_2(M)) = \tau_2\)
+\item if \(\infertype(\Gamma, M) = \bot\), then \(\infertype(\Gamma, \pi_1(M)) = \bot\) and \(\infertype(\Gamma, \pi_2(M)) = \bot\)
+\item if \(\infertype(\Gamma, M) = T\), but \(T\) is not of the form \(\tau_1 \times \tau_2\), then \(\infertype(\Gamma, \pi_1(M)) = \bot\) and \(\infertype(\Gamma, \pi_2(M)) = \bot\)
+\item if \(T\) is of the form \(\tau_1 \times \tau_2\), then \(\infertype(\Gamma, \pi_1(M)) = \tau_1\) and \(\infertype(\Gamma, \pi_2(M)) = \tau_2\)
 \end{itemize}
 \item testing assumptions
 \begin{itemize}
-\item if a term \(M\) is generated from the ill-typed pool, \(\infer(\Gamma, M) = \bot\)
-\item on the other hand, if \(M\) is generated from the well-typed pool, \(\infer(\Gamma, M) = \tau\) for some \(\tau\)
+\item if a term \(M\) is generated from the ill-typed pool, \(\infertype(\Gamma, M) = \bot\)
+\item on the other hand, if \(M\) is generated from the well-typed pool, \(\infertype(\Gamma, M) = \tau\) for some \(\tau\)
 \end{itemize}
 \end{itemize}
 
@@ -321,7 +321,7 @@ empty = \x -> Nothing
 \end{minted}
 
 In the case of the extracted inference algorithm, this implementation of map should result in quadratic slowdown when applied to binders followed by variable lookup, as the closure representing the finite map grows in size.
-However, in the typing-context dataset, this does not appear to be the case: even profiling the executable does not show significant time spent in the closure, or in the equality implementation.
+Unexpectedly, in the typing-context dataset, this does not appear to be the case: even profiling the executable does not show significant time spent in the closure, or in the equality implementation.
 
 However, I would still expect a reasonable implementation with e.g. an ordered map to be more performant: figure \ref{fig:results-map} shows that a hand-implemented version using Haskell's \emph{containers} ordered-map implementation is still linear in the size of the input (as expected), but the implementation is considerably slower than the na\"ive version.
 

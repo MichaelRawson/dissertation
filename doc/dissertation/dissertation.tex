@@ -1,8 +1,10 @@
-\documentclass{scrreprt}
+\documentclass[fontsize=12pt, a4paper]{scrreprt}
 \usepackage[outputdir=output]{minted}
 \usepackage{amsmath}
+\usepackage{amsthm}
 \usepackage{graphicx}
 \usepackage{subcaption}
+\usepackage{mathpartir}
 
 \title{
  {Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed $\lambda$-Calculus}\\
@@ -15,14 +17,17 @@
 \bibliography{dissertation}
 
 % helpful macros
-\newcommand{\infer}{\mathrm{infer}}
+\newcommand{\infertype}{\mathrm{infer}}
 \newcommand{\unit}{\mathrm{unit}}
 \newcommand{\wrap}[1]{\left(#1\right)}
+\newcommand{\swap}{\leftrightarrow}
+\newtheorem*{definition}{Definition}
 
 \begin{document}
 \maketitle
 \tableofcontents
 
 \input{chapters/introduction/introduction}
+\input{chapters/preparation/preparation}
 \printbibliography
 \end{document}
