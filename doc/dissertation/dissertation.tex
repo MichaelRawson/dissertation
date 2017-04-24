@@ -1,10 +1,15 @@
 \documentclass[fontsize=12pt, a4paper]{scrreprt}
-\usepackage[outputdir=output]{minted}
+\usepackage{amsfonts}
+\usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{amsthm}
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{mathpartir}
+\usepackage{isabelle}
+\usepackage{isabellesym}
+\usepackage{comment}
+\usepackage[outputdir=output]{minted}
 
 \title{
  {Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed $\lambda$-Calculus}\\
@@ -21,13 +26,20 @@
 \newcommand{\unit}{\mathrm{unit}}
 \newcommand{\wrap}[1]{\left(#1\right)}
 \newcommand{\swap}{\leftrightarrow}
+\newcommand{\dollar}{\mathbin{\textrm{\footnotesize{\textbf{\$}}}}}
+\newcommand{\image}{\mathbin{\{\$\}}}
+\newcommand{\fvs}{\mathrm{fvs}}
 \newtheorem*{definition}{Definition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newenvironment{implementation}
+ {\bigskip\setlength{\leftskip}{1cm}\begin{isabellebody}}
+ {\end{isabellebody}\setlength{\leftskip}{0cm}\bigskip}
 
 \begin{document}
 \maketitle
 \tableofcontents
 
-\input{chapters/introduction/introduction}
-\input{chapters/preparation/preparation}
+\input{chapters/conclusion/conclusion}
 \printbibliography
 \end{document}

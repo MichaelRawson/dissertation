@@ -1,0 +1,13 @@
+digraph dependencies {
+	Main -> Fresh;
+	Main -> Permutation;
+	Main -> PreSimplyTyped;
+	Main -> SimplyTyped;
+
+	Fresh -> PreSimplyTyped;
+	Permutation -> PreSimplyTyped;
+
+	Fresh -> SimplyTyped;
+	Permutation -> SimplyTyped;
+	PreSimplyTyped -> SimplyTyped;
+}
