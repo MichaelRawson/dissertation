@@ -1,0 +1,38 @@
+\chapter{Conclusion}
+I have shown the development of a formalised implementation of a typed \(\lambda\)-calculus in the proof assistant Isabelle, complete with correctness properties about the type system and verified, extracted, code for type inference.
+All success criteria have been met, and some extensions have been made, augmenting the core calculus and showing the confluence property.
+This work differs from, and improves upon a typical implementation in its use of nominal techniques that have several advantages over other methods of name binding.
+
+\section{List of Results}
+Taking success criteria from my project proposal, they have all been met:
+\begin{enumerate}
+\item
+I have now learned sufficient theory to understand, implement, and justify my approach to the problem.
+\item
+I gained sufficient practical experience before and during my project about the Isabelle proof assistant to efficiently implement the project.
+\item
+The representation of the calculus I chose has been sufficient to produce the rest of my dissertation with.
+\item
+I have proven the progress, preservation, and safety properties of the type system.
+\item
+The implementation of type inference has been verified by showing it equivalent to the inductive typing rules.
+\item
+The extracted Standard ML code does compile and run as expected.
+Although Haskell was the language I eventually used for testing, I don't consider that this change of decision disqualifies this success criterion.
+\item
+The dissertation is complete.
+\end{enumerate}
+
+\section{Further Work}
+There is significant scope for further work in this area.
+One of several areas could be pursued:
+\begin{itemize}
+\item
+Improving the nominal approach, perhaps adding some automation to remove some of the painful points.
+\item
+Extending or modifying the calculus to more interesting calculi, like System F.
+\item
+Improving performance of the extracted code.
+\item
+Further properties of the calculus, such as the strong normalisation property.
+\end{itemize}
