@@ -1,4 +1,10 @@
-\documentclass[fontsize=12pt, a4paper]{scrreprt}
+\documentclass[12pt,a4paper,twoside,openright]{report}
+% department stuff -- hyperref breaks things?
+%\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[margin=25mm]{geometry}
+\usepackage{standalone}
+
+% my imports
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{amsmath}
@@ -10,18 +16,22 @@
 \usepackage{isabellesym}
 \usepackage{comment}
 \usepackage[outputdir=output]{minted}
+\usepackage[backend=bibtex,sorting=none]{biblatex}
 
-\title{
- {Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed $\lambda$-Calculus}\\
- {\large University of Cambridge}\\
-}
+\bibliography{dissertation}
+\bibliography{proposal/proposal}
+
+\raggedbottom
+\sloppy
+\clubpenalty1000%
+\widowpenalty1000%
+\renewcommand{\baselinestretch}{1.1}
+
 \author{Michael Rawson}
 \date{2016--17}
 
-\usepackage[backend=bibtex,sorting=none]{biblatex}
-\bibliography{dissertation}
-
 % helpful macros
+\newcommand{\thetitle}{Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed \(\lambda\)-Calculus}
 \newcommand{\infertype}{\mathrm{infer}}
 \newcommand{\unit}{\mathrm{unit}}
 \newcommand{\wrap}[1]{\left(#1\right)}
@@ -37,9 +47,72 @@
  {\end{isabellebody}\setlength{\leftskip}{0cm}\bigskip}
 
 \begin{document}
-\maketitle
-\tableofcontents
+% bibliography style doesn't work either?
+%\bibliographystyle{plain}
 
+\pagestyle{empty}
+\rightline{\LARGE\textbf{Michael Rawson}}
+\vspace*{60mm}
+\begin{center}
+\Huge
+\textbf{\thetitle}\\[5mm]
+Computer Science Tripos -- Part II\\[5mm]
+Robinson College\\[5mm]
+\today
+\end{center}
+
+%proforma
+\pagestyle{plain}
+\chapter*{Proforma}
+{\large
+\begin{tabular}{ll}
+Name:              & \bf Michael Rawson\\
+College:           & \bf Robinson College\\
+%lol, FIXME
+Project Title:     & \bf \thetitle\\
+Examination:       & \bf Computer Science Tripos -- Part II, July 2017\\
+Word Count:        & 0xDEADBEEF\footnotemark[1]\\
+Project Originator:& Dr. Dominic Mulligan\\
+Supervisors:       & Dr. Dominic Mulligan and Dr. Victor Gomes\\
+\end{tabular}
+}
+\footnotetext[1]{This word count has not been computed yet, but I assume it is too small\ldots}
+\stepcounter{footnote}
+
+\section*{Origin Aims of the Project}
+TODO
+
+\section*{Work Completed}
+Yes.
+
+\section*{Special Difficulties}
+None.
+
+\newpage
+\section*{Declaration}
+I, Michael Rawson of Robinson College, being a candidate for Part II of the Computer Science Tripos, hereby declare that this dissertation and the work described in it are my own work, unaided except as may be specified below, and that the dissertation does not contain material that has already been used to any substantial extent for a comparable purpose.
+
+\bigskip
+\leftline{Signed }
+\medskip
+\leftline{Date }
+\tableofcontents
+\listoffigures
+
+\newpage
+\section*{Acknowledgements}
+Who/what is conventional to put here?
+\pagestyle{headings}
+
+\input{chapters/introduction/introduction}
+\input{chapters/preparation/preparation}
+\input{chapters/implementation/implementation}
+\input{chapters/evaluation/evaluation}
 \input{chapters/conclusion/conclusion}
+\addcontentsline{toc}{chapter}{Bibliography}
 \printbibliography
+\appendix
+\chapter{Future Appendix}
+\chapter{Project Proposal}
+\input{proposal/proposal}
 \end{document}

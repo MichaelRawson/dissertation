@@ -2,19 +2,11 @@
 After identifying the main goals of the project, these coarse requirements have to be refined, in order to be more precise about my aims and drive the project development.
 The result of this is a set of \emph{requirements} that can then be analysed to predict problems and measure success.
 Once any problems have been resolved, work can begin on implementation.
+Some mathematical theory is also required to state the problem more precisely, and can be used to direct the refinement of requirements.
 
-\section{Initial Choices}
-Before the project could begin, several choices were made to make the project plan more concrete and define the problem space more accurately.
-The first choice presented was choosing a proof assistant for use encoding the calculus.
-My supervisor suggested Isabelle\cite{isabelle}, a proof assistant with strong links to the university.
+In this chapter I discuss the background theory required to begin work on the formalisation, briefly introduce my main tool, Isabelle, and produce a list of requirements.
 
-The other choice that I made is the exact type system I would implement for my theory.
-I chose to implement the simply-typed calculus (arguably the simplest), leaving any extensions until later in the project to allow for delays.
-
-\section{Background Theory}
-Some mathematical theory is required to state the problem more precisely, and can be used to direct the refinement of requirements.
-
-\subsection{\(\lambda\)-Calculus}
+\section{\(\lambda\)-Calculus}
 The \(\lambda\)-calculus\cite{lambda-overview} is a formal system of computation represented by operations on an set of terms.
 \begin{definition}
 Terms \(M\) are inductively defined as follows.
@@ -31,7 +23,7 @@ This represents function application in the calculus, the dual of function abstr
 \end{enumerate}
 \end{definition}
 
-This is relatively easy to define programmatically, as it can be represented with an algebraic datatype.
+This is straightforward to define programmatically, as it can be represented with an algebraic datatype.
 For instance, in Standard ML:
 \begin{minted}{SML}
 datatype 'a trm =
@@ -40,7 +32,137 @@ datatype 'a trm =
   | App of ('a trm * 'a trm)
 \end{minted}
 
-\subsection{The Problem of \(\alpha\)-Equivalence}
+Computation in this system is done by means of \(\beta\)-reduction: terms may \emph{reduce} to another term according to a series of rules, and hence computation occurs by sequential reductions of terms.
+
+\begin{definition}
+A term \(M\) \(\beta\)-reduces to \(M'\), \(M \to_\beta M'\) if one of the following holds:
+\begin{enumerate}
+\item
+If the left or right subterms of an application reduce to another term, then the application reduces to the same application with that term reduced.
+For instance, if \(M \to_\beta M'\), then \(\wrap{M\ N} \to_\beta \wrap{M'\ N}\).
+\item
+If the bound term \(M\) of a function reduces to \(M'\), then \(\lambda x.M\) reduces to \(\lambda x.M'\).
+\item
+If the term is of the form \(\wrap{\wrap{\lambda x.M}\ N}\), then it is a \(\beta\)-redex, and reduces to
+\[
+M[x := N]
+\]
+That is, \(M\) with any occurrence of the variable \(x\) substituted for \(N\).
+\end{enumerate}
+\end{definition}
+
+It turns out that the order in which reduction steps occur in a computation is important for many applications of the \(\lambda\)-calculus, but I did not use this property in any of the results in my dissertation.
+Substitution, while used informally above, is itself defined recursively.
+
+\begin{definition}
+Suppose \(N\) is substituted for \(x\) in \(M\), and \(y\) is used for any name that is not the same as \(x\).
+Then the result, \(M[x := N]\), is defined piecewise as
+\[
+M[x := N] =
+\begin{cases}
+N & M = x\\
+M & M = y\\
+M & M = \lambda x. M'\\
+\lambda y. \wrap{M'[x := N]} & M = \lambda y. M'\\
+\wrap{M_1[x := N]\  M_2[x := N]} & M = \wrap{M_1\ M_2}\\
+\end{cases}
+\]
+\end{definition}
+
+\(\beta\)-reduction has the notable property of \emph{confluence}, which I show as an extension in the implementation chapter.
+Confluence states that if \(A\) reduces in zero or more steps to \(B\), and similarly on a possibly-different path to \(C\), there is a \(D\) such that \(B\) and \(C\) both reduce to \(D\).
+
+One consequence of reduction is that there are terms that cannot be further reduced: \(x\) is one example, as is \(\lambda y.y\), or \(\wrap{f\ x}\).
+These terms are considered to be values, or \emph{in normal form}.
+
+\begin{definition}
+Variables \(x\) are in normal form.
+Applications are in normal form if they are not a \(\beta\)-redex and both subterms are themselves in normal form.
+Binders are in normal form if their bound subterm is in normal form.
+\end{definition}
+
+\section{Simple Types}
+Untyped calculi have several disadvantages: for one, a lack of type system means that unexpected or nonsensical constructions can be made (such as applying a non-function), which a type system generally prevents.
+A more mathematical issue is lack of termination: a sequence of reductions of untyped terms may not necessarily ever terminate.
+Consider
+
+\[
+\Omega = \wrap{\lambda x. \wrap{x\ x}}\ \wrap{\lambda x. \wrap{x\ x}}
+\]
+
+Then the only possible reduction rule for \(\Omega\) produces \(\Omega\) itself, without any possibility of termination.
+The untyped calculus can be extended to include a type system without any effect on the theory of names it uses: a \emph{type} is simply added to each binder, so \(\lambda x.M\) becomes \(\lambda (x:T).M\), for an arbitrary \(T\).
+
+\begin{definition}
+Simple types \(\tau\) are either
+\begin{enumerate}
+\item
+A (fixed) base type, say \(\iota\).
+\item
+An arrow type \(\tau \to \tau\) from one type to another.
+\end{enumerate}
+\end{definition}
+
+Adding simple types to the binders of the untyped calculus produces the \emph{simply-typed} \(\lambda\)-calculus.
+The typing relation \(\Gamma \vdash M : \tau\) is given inductively in figure \ref{fig:typing}.
+\(\Gamma\) here is a typing context: a partial function from variables to types.
+
+\begin{figure}
+\begin{mathpar}
+\inferrule[var]
+ {\Gamma(x) = \tau}
+ {\Gamma \vdash x : \tau}
+
+\inferrule[fn]
+ {\Gamma\{x \mapsto \tau\} \vdash M : \sigma}
+ {\Gamma \vdash \lambda (x : \tau). M : \tau \to \sigma}
+
+\inferrule[app]
+ {\Gamma \vdash M : \tau \to \sigma \\ \Gamma \vdash N : \tau}
+ {\Gamma \vdash \wrap{M\ N} : \sigma}
+\end{mathpar}
+\caption{typing rules for the simply-typed calculus}
+\label{fig:typing}
+\end{figure}
+
+Using these typing rules, I show several correctness properties in my implementation that are not possible in an untyped calculus: progress, type preservation (also known as subject reduction), and safety.
+These capture several possible meanings behind the maxim ``well-typed programs do not go wrong''.
+
+\begin{definition}
+The progress property states that if a term is well-typed, then it is either in normal form or can be reduced further.
+\end{definition}
+
+This shows that well-typed programs cannot ``get stuck'' on terms that are not values, but cannot be computed.
+
+\begin{definition}
+The preservation property holds if, when a term has a given type \(\tau\), it still has the same type after being reduced.
+\end{definition}
+
+Generally this a desirable property in a language: expressions should not change semantics simply because they were evaluated.
+
+\begin{definition}
+A language has the safety property if reducing a well-typed term by an arbitrary number of steps results in another term that is either in normal form, or can be reduced further.
+\end{definition}
+
+This property is the main aim of the verification: it shows that if a term is well-typed, then there is no scenario in which reduction can fail --- either the term keeps reducing, or the computation has finished.
+
+Type inference is the process of producing a type \(\tau\) for term \(M\) such that \(M\) has this type under some \(\Gamma\).
+One advantage of the simply-typed calculus is that type inference is a straightforward algorithm, with no unification steps or other complexity that comes with more advanced typing systems.
+A type inference algorithm \(\infertype(\Gamma, M)\) can be described recursively by
+\[
+\infertype\wrap{\Gamma, M} =
+\begin{cases}
+\Gamma(x) & M = x\\
+\tau \to \infertype\wrap{\Gamma\{x \mapsto \tau\}, N} & M = \lambda (x : \tau). N\\
+\mathrm{apply}\wrap{\infertype\wrap{\Gamma, A}, \infertype\wrap{\Gamma, B}} & M = \wrap{A\ B}
+\end{cases}
+\]
+where \(\mathrm{apply}\wrap{\tau \to \sigma, \tau}\) produces \(\sigma\) for any \(\tau, \sigma\), and all other input is undefined.
+In my implementation, I use an option type to recognise failure and propagate errors up to the top of the stack, but the presentation above omits this for simplicity.
+Type inference can be shown to be correct with respect to a type system if it only infers correct types (it is \emph{sound}) and infers all types that are valid typing judgements (it is \emph{complete}).
+Then the two are equivalent, and any property the typing system has, the type inference algorithm also has.
+
+\section{The Problem of \(\alpha\)-Equivalence}
 Unfortunately, this representation with names and binders has a problem: frequently, it is convenient to reason that e.g. \(\lambda x.x\) and \(\lambda y.y\) are the same: they do, after all, compute equal values on all inputs.
 
 However, structurally-speaking they are not equal: the string \(x\) is not the same as \(y\).
@@ -57,22 +179,18 @@ Such a definition can be implemented in an assistant, then used whenever a state
 It also conveniently forms an equivalence relation.
 It is nonetheless rather un-ergonomic and inefficient to carry such an assumption around, and assistants often reason better about actual equality than arbitrary equivalence relations.
 
-\subsubsection{Quotient Types}
 This problem can be solved by using \emph{quotient types}.
 \begin{definition}
 A quotient type \(Q\) consists of a base type \(R\), an equivalence relation \(\sim\) on \(R\), and functions \(\mathrm{Abs} : R \to Q\) and \(\mathrm{Rep} : Q \to R\).
 Items \(q_1 : Q\) and \(q_2 : Q\) are equal iff \(Rep\ q_1 \sim Rep\ q_2\).
 \end{definition}
-Isabelle provides this mechanism via a \texttt{quotient\_datatype} command\cite{isabelle-quotient}, which takes \(R\) and \(\sim\) and produces \(Q\), \(\mathrm{Abs}\) and \(\mathrm{Rep}\).
-It also provides ``lifting'' and ``transfer'' operations, useful for lifting operations from the base type to the quotient type, and transferring proof obligations from the quotient type to the base type.
 
 This allows the definition of a type for terms modulo \(\alpha\)-equivalence as required by defining a datatype for pre-terms without a notion of equivalence (as before), then producing the new type as a quotient type over the \(\alpha\)-equivalence relation.
 
-\subsection{Other Approaches to Names}
 While we can now use equality directly instead of an equivalence relation, the definition of the equivalence relation is quite awkward to use.
-There are several alternative ways of handling names and \(\alpha\)-equivalence, the most prominent being deBruijn indices, Higher-Order Abstract Syntax (or HOAS for short), and nominal techniques.
+There are several alternative ways of handling names and \(\alpha\)-equivalence, the most prominent being de Bruijn indices, Higher-Order Abstract Syntax (or HOAS for short), and nominal techniques.
 
-DeBruijn indices remove names altogether and instead uses natural numbers for bound variables to refer to the number of binders between the variable and the binder that bound it.
+De Bruijn indices remove names altogether and instead uses natural numbers for bound variables to refer to the number of binders between the variable and the binder that bound it.
 For instance, the constant function
 \[
 \lambda x. \lambda y. x
@@ -81,7 +199,7 @@ becomes
 \[
 \lambda.\lambda. 1
 \]
-using deBruijn indices.
+using de Bruijn indices.
 Using this approach, \(\alpha\)-equivalence is now simply equality, as all bound names have been removed.
 The downside of this approach is that actually using this representation for proofs is quite difficult and unintuitive, and it conflicts with the general approach used in informal proof.
 
@@ -100,7 +218,6 @@ Finally, the techniques under the heading of ``nominal methods'' are a relativel
 The technique uses a different definition of \(\alpha\)-equivalence based on \emph{swapping} (rather than substituting) names in a given expression\cite{nominal}.
 This was the approach that I chose.
 
-\subsubsection{Swappings}
 \begin{definition}
 A swapping \([x \swap y]\) is a pair of variables.
 \end{definition}
@@ -139,8 +256,7 @@ It can further be shown\cite{nominal} that \(\sim\) is precisely the same as \(\
 
 Therefore my strategy for representing terms modulo \(\alpha\)-equivalence will be to develop a theory of swappings, then use it to argue that \(\sim\) is an equivalence relation, and finally produce a new type as a quotient of the concrete type with respect to \(\sim\).
 
-\subsubsection{Freshness}
-Looking at the \textsc{Fn} rule of figure \ref{fig:nominal}, the preconditions \(z \# M\) and \(z \# N\) merit explanation: \(x \# M\) is the statement ``x is \emph{fresh} for M''.
+Looking at the \textsc{Fn} rule of Figure \ref{fig:nominal}, the preconditions \(z \# M\) and \(z \# N\) merit explanation: \(x \# M\) is the statement ``x is \emph{fresh} for M''.
 
 \begin{definition}
 An element \(x\) is fresh in a set \(S\) iff \(x \notin S\).
@@ -150,54 +266,21 @@ Moreover, a variable \(x\) is fresh for a term \(M\) iff \(x\) is fresh for the 
 The idea of picking a fresh item for a given set is common in proofs about the nominal approach to binding.
 As a result, I also need a verified implementation of freshness to argue neatly about binding in Isabelle.
 
-\subsection{Simple Types}
-The untyped calculus can be extended to include a type system without any effect on the theory of names it uses: a \emph{type} is simply added to each binder, so \(\lambda x.M\) becomes \(\lambda (x:T).M\), for an arbitrary \(T\).
+\section{Isabelle}
+Isabelle\cite{isabelle} is a proof assistant, supporting several separate logics (although I use the default), a number of automated theorem provers to remove tedious proof steps, and a human-readable proof script language, Isar.
+Proofs are created and checked in Isabelle by providing any definitions (functions, datatypes, inductive definitions, abbreviations) you wish to make (which Isabelle will take as axioms, within the restrictions of the definition implementation), then arguing any theorems you wish to prove in the context of these definitions.
+Since each step is checked, the theorems must be logically correct with respect to the definitions used.
+There are also a variety of other useful features that Isabelle provides that I use in my project.
 
-\begin{definition}
-Simple types \(\tau\) are either
-\begin{enumerate}
-\item
-A (fixed) type variable, say \(\alpha\) or \(\beta\).
-\item
-An arrow type \(\tau \to \tau\) from one type to another.
-\end{enumerate}
-\end{definition}
+Quotient types are used heavily in my dissertation, both for equivalence of permutations (introduced later to implement the nominal approach more easily), and for \(\alpha\)-equivalence.
+Isabelle provides this mechanism via a \texttt{quotient\_datatype} command\cite{isabelle-quotient}, which takes a base type \(R\) and an equivalence relation \(\sim\) and produces a new quotient type \(Q\), \(\mathrm{Abs}\) and \(\mathrm{Rep}\).
+It also provides ``lifting'' and ``transfer'' operations, useful for lifting operations from the base type to the quotient type, and transferring proof obligations from the quotient type to the base type.
 
-Adding simple types to the binders of the untyped calculus produces the \emph{simply-typed} \(\lambda\)-calculus.
-The typing relation \(\Gamma \vdash M : \tau\) is given inductively in figure \ref{fig:typing}.
-\(\Gamma\) here is a typing relation: a partial function from variables to types.
+Type classes are another Isabelle feature that I used.
+They provide a way for types to conform to an interface (for instance, all types that can be ordered might form an ordering typeclass), which I used to implement freshness parametrically on any type.
 
-\begin{figure}
-\begin{mathpar}
-\inferrule[var]
- {\Gamma(x) = \tau}
- {\Gamma \vdash x : \tau}
+Finally, one invaluable feature was the ability to define custom syntax: writing relations like substitution in prefix form would become tedious very quickly.
 
-\inferrule[fn]
- {\Gamma\{x \mapsto \tau\} \vdash M : \sigma}
- {\Gamma \vdash \lambda (x : \tau). M : \tau \to \sigma}
-
-\inferrule[app]
- {\Gamma \vdash M : \tau \to \sigma \\ \Gamma \vdash N : \tau}
- {\Gamma \vdash \wrap{M\ N} : \sigma}
-\end{mathpar}
-\caption{typing rules for the simply-typed calculus}
-\label{fig:typing}
-\end{figure}
-
-One advantage of the simply-typed calculus is that type inference is an extremely  simple algorithm, with no unification steps or other complexity that comes with more advanced type schemes.
-A type inference algorithm \(\infertype(\Gamma, M)\) can be described recursively by
-\[
-\infertype\wrap{\Gamma, M} =
-\begin{cases}
-\Gamma(x) & M = x\\
-\tau \to \infertype\wrap{\Gamma\{x \mapsto \tau\}, N} & M = \lambda (x : \tau). N\\
-\mathrm{apply}\wrap{\infertype\wrap{\Gamma, A}, \infertype\wrap{\Gamma, B}} & M = \wrap{A\ B}
-\end{cases}
-\]
-where \(\mathrm{apply}\wrap{\tau \to \sigma, \tau}\) produces \(\sigma\) for any \(\tau, \sigma\), and all other input is undefined.
-
-Note that this algorithm produces the same type for all terms in an \(\alpha\)-equivalence class, and hence can be lifted to work on equivalence classes, rather than concrete terms.
 \section{Requirements}
 Moving from coarse requirements to finer ones is now more straightforward, as a number of constraints have been imposed by the mathematics.
 Implementation in Isabelle can proceed as follows:

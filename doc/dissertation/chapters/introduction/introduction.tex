@@ -1,37 +1,45 @@
 \chapter{Introduction}
-The following describes my part II project for the Computer Science Tripos, entitled \emph{Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed \(\lambda\)-Calculus}.
-The project consists of a series of machine-checked proofs about a typed \(\lambda\)-calculus, a type inference algorithm for the calculus, and a checked proof of correctness of the algorithm.
+\(\lambda\)-calculi express abstract computation, forming a large part of computability theory, the theoretical basis of functional programming, and research into programming languages and type systems.
+My dissertation describes the implementation of a series of machine-checked proofs in the proof assistant Isabelle concerning a typed \(\lambda\)-calculus encoded in the proof assistant, culminating in several correctness properties of the implementation.
+On the practical side of the project, I also extract a type inference algorithm for the calculus from the formal implementation, and supply a checked proof of correctness of the algorithm.
 
-\section{Motivation}
-In order to exercise my interest in formal logic and types, my supervisor suggested that I implement a typed \(\lambda\)-calculus, operations upon the calculus, and a type inference algorithm, then prove correctness properties about these.
-Proofs about language semantics can include a lot of sub-cases and be difficult to argue correctly, so it was decided an automated proof-checker would be used to verify these proofs.
-
-Therefore, the project had several principle motivations:
-\begin{itemize}
-\item
-Produce a bug-free implementation of the calculus, operations, and type inference, encoded in a proof-checker.
-\item
-Ensure the implementation is correct by providing verified formal proofs with the help of the checker.
-\item
-Extract working code from the checker that is known to be correct.
-\end{itemize}
-
-\section{Related Computer Science}
-The project draws on a wide variety of areas in theoretical Computer Science: \(\lambda\)-calculi, types, formal logic, and verified reasoning.
-
+I draw on a wide variety of areas in theoretical Computer Science for my project: \(\lambda\)-calculi, types, formal logic, and verified reasoning.
 By implementing and verifying a \emph{typed} calculus, the project required some theory about types in addition to the \(\lambda\)-calculus, including proving properties such as the preservation of types under \(\beta\)-reduction.
 Verification itself requires some knowledge (and precise application) of formal logic, as an intuitive argument will frequently not satisfy the checker.
 Finally, the proof strategy taken with informal proof versus those with verified proof remain different: while theorem-proving technology has improved so that an informal proof's structure largely remains in a verified proof, details that a human reader would discount as intuitive are still often not so to the checker.
 
+\section{Project Summary}
+During the course of the project, I implemented the following features:
+\begin{itemize}
+\item
+An encoding of the calculus in Isabelle.
+\item
+Some theory about \(\alpha\)-equivalence in the calculus --- this turns out to be an interesting problem.
+\item
+An implementation of a typing relation on the calculus.
+\item
+An executable type inference algorithm that is shown to be correct against the typing relation.
+\item
+Extracted code for this inference algorithm.
+\item
+Some safety properties of the calculus: progress, type preservation, and safety.
+\end{itemize}
+
+For extension work, I also implemented unit and pair terms and associated types, and showed that the terms of the calculus are confluent under \(\beta\)-reduction.
+
 \section{Previous Work}
-Clearly for such a theoretical project, much of the work involved is standing on the shoulders of giants: Church's \(\lambda\)-calculus has a distinguished history\cite{lambda-history}, as does type theory since Russell's original \emph{theory of types}\cite{russell}.
+The theory behind typed \(\lambda\)-calculi is well-known: Church's \(\lambda\)-calculus has a distinguished history\cite{lambda-history}, as does type theory since Russell's original \emph{theory of types}\cite{russell}.
+My work uses particularly well-established knowledge, so there was little risk of attempting a mathematically impossible project.
 Formal verification also has a great deal of previous work that can be re-used: the majority of proof checkers are now proof \emph{assistants}, including automation tools, tactics and theorem provers (at least for small deductive steps) and large existing libraries of formalised mathematics.
 As an example, the \textsc{Mizar} system\cite{mizar} contains in its distribution a library of over 50,000 proofs.
+Isabelle is no exception to this.
 
 There is also more specific work that pertains directly to my project.
-Several implementations of typed \(\lambda\)-calculus have been implemented and verified (see for instance the \textsc{PoplMark} challenge\cite{poplmark}) using an assortment of techniques, tools, and proofs, all of which can help with my project.
+Several implementations of typed \(\lambda\)-calculus have been implemented and verified (see for instance the \textsc{PoplMark} challenge\cite{poplmark}, a set of challenges designed to measure progress in mechanizing programming language metatheory) using an assortment of techniques, tools, and proofs, all of which can help with my project.
+I can draw on these for inspiration.
 
-\subsection{A Note on Difficulty and Plagiarism}
-Given the large amount of relevant previous work, the mildly-sceptical reader might say that my project is not particularly difficult, and the hardened sceptic would claim that it amounts to plagiarism.
-I hope the examiners will recognise that the number of variables (exact details of the type system, approach to representation, tooling, proof style\ldots) provides significant scope for variation --- to the best of my knowledge, there are no existing implementations that are similar to my project in this respect.
-Combining these variable factors into a project also produces sufficient difficulty for it to be as new research: all proofs were sketched first with pen-and-paper, then transcribed (in painstaking detail, as verification demands) into the proof assistant.
+\section{Completed Work}
+I have met all criteria for my project as laid out in my project proposal, and have added some extra results and improvements as extensions.
+I define mathematically, then encode in Isabelle a simply-typed calculus, and show several results about the calculus and \(\alpha\)-equivalence.
+Using this encoding, I then add a typing relation, type inference and operations on the calculus, leading up to the main results of the project: progress, type-preservation, and safety with respect to the typing relation.
+Finishing, I show that the type inference algorithm is correct with respect to the type system, and hence also has the safety properties.
