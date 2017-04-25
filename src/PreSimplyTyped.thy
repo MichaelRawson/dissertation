@@ -145,7 +145,6 @@ proof -
       consider "b \<in> ptrm_fvs B" | "b \<notin> ptrm_fvs B" by auto
       thus ?thesis proof(cases)
         case 1
-          thm prm_set_unit_action[where ?S = "ptrm_fvs B" and ?a = b and ?b = a]
           have "[a \<leftrightarrow> b] {$} ptrm_fvs B - {a} = [b \<leftrightarrow> a] {$} ptrm_fvs B - {a}" using prm_unit_commutes by metis
           moreover have "... = ((ptrm_fvs B - {b}) \<union> {a}) - {a}"
             using prm_set_unit_action `b \<in> ptrm_fvs B` `a \<notin> ptrm_fvs B` by metis
@@ -204,120 +203,36 @@ using assms proof(induction rule: ptrm_alpha_equiv.induct)
 qed
 
 lemma ptrm_swp_transfer:
-  assumes "[a \<leftrightarrow> b] \<bullet> X \<approx> Y"
-  shows "X \<approx> [a \<leftrightarrow> b] \<bullet> Y"
+  shows "[a \<leftrightarrow> b] \<bullet> X \<approx> Y \<longleftrightarrow> X \<approx> [a \<leftrightarrow> b] \<bullet> Y"
 proof -
-  have "[a \<leftrightarrow> b] \<bullet> [a \<leftrightarrow> b] \<bullet> X \<approx> [a \<leftrightarrow> b] \<bullet> Y"
-    using assms ptrm_alpha_equiv_prm by metis
-  hence "([a \<leftrightarrow> b] \<diamondop> [a \<leftrightarrow> b]) \<bullet> X \<approx> [a \<leftrightarrow> b] \<bullet> Y" using ptrm_prm_apply_compose
-    by metis
-  hence "\<epsilon> \<bullet> X \<approx> [a \<leftrightarrow> b] \<bullet> Y" using prm_unit_involution by metis
-  thus ?thesis using ptrm_prm_apply_id by metis
-qed
-
-lemma ptrm_fresh_transfer:
-  assumes "a \<noteq> b" "a \<notin> ptrm_fvs A"
-  shows "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)"
-using assms proof(induction A)
-  case (PUnit)
-    thus ?case by simp
-  next
-  case (PVar x)
-    hence "a \<noteq> x" by auto
-    consider "b = x" | "b \<noteq> x" by auto
-    thus ?case proof(cases)
-      assume "b = x"
-      hence "[a \<leftrightarrow> b] \<bullet> PVar x = PVar a"
-        using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(2) by metis
-      hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PVar x) = {a}" by simp
-      thus ?thesis using `a \<noteq> x` `b = x` by simp
-      next
-
-      assume "b \<noteq> x"
-      hence "[a \<leftrightarrow> b] \<bullet> PVar x = PVar x"
-        using prm_unit_inaction `a \<noteq> x` ptrm_apply_prm.simps(2) by metis
-      hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PVar x) = {x}" by simp
-      thus ?thesis using `b \<noteq> x` by simp
-    qed
-  next
-  case (PApp A B)
-    hence "a \<noteq> b" "a \<notin> ptrm_fvs A" "a \<notin> ptrm_fvs B" by auto
-    hence "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)" "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using PApp.IH by auto
-    hence "b \<notin> ptrm_fvs (PApp ([a \<leftrightarrow> b] \<bullet> A) ([a \<leftrightarrow> b] \<bullet> B))" by simp
-    thus ?case by simp
-  next
-  case (PFn x T A)
-    consider "a = x" | "a \<notin> ptrm_fvs A \<and> a \<noteq> x" using PFn.prems by auto
-    thus ?case proof(cases)
-      assume "a = x"
-      hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn b T ([a \<leftrightarrow> b] \<bullet> A)" using prm_unit_action by simp
-      thus ?thesis by simp
-      next
-
-      assume "a \<notin> ptrm_fvs A \<and> a \<noteq> x"
-      hence "a \<notin> ptrm_fvs A" "a \<noteq> x" by auto
-      hence *: "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)" using PFn by auto
-
-      consider "b = x" | "b \<noteq> x" by auto
-      thus ?thesis proof(cases)
-        assume "b = x"
-        hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn a T ([a \<leftrightarrow> b] \<bullet> A)"
-          using prm_unit_action prm_unit_commutes ptrm_apply_prm.simps(4) by metis
-        hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PFn x T A) = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A) - {a}" by simp
-        thus ?thesis using `a \<noteq> x` `b = x` * by auto
-        next
-
-        assume "b \<noteq> x"
-        hence "[a \<leftrightarrow> b] \<bullet> PFn x T A = PFn x T ([a \<leftrightarrow> b] \<bullet> A)"
-          using `a \<noteq> x` prm_unit_inaction ptrm_apply_prm.simps(4) by metis
-        hence "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> PFn x T A) = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A) - {x}" by simp
-        thus ?thesis using `b \<noteq> x` * by auto
-      qed
-    qed
-  next
-  case (PPair A B)
-    hence "a \<noteq> b" "a \<notin> ptrm_fvs A" "a \<notin> ptrm_fvs B" by auto
-    hence "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> A)" "b \<notin> ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using PPair.IH by auto
-    hence "b \<notin> ptrm_fvs (PApp ([a \<leftrightarrow> b] \<bullet> A) ([a \<leftrightarrow> b] \<bullet> B))" by simp
-    thus ?case by simp
-  next
-  case (PFst P)
-    thus ?case by simp
-  next
-  case (PSnd P)
-    thus ?case by simp
-  next
+  have 1: "[a \<leftrightarrow> b] \<bullet> X \<approx> Y \<Longrightarrow> X \<approx> [a \<leftrightarrow> b] \<bullet> Y"
+  proof -
+    assume "[a \<leftrightarrow> b] \<bullet> X \<approx> Y"
+    hence "\<epsilon> \<bullet> X \<approx> [a \<leftrightarrow> b] \<bullet> Y"
+      using ptrm_alpha_equiv_prm ptrm_prm_apply_compose prm_unit_involution by metis
+    thus ?thesis using ptrm_prm_apply_id by metis
+  qed
+  have 2: "X \<approx> [a \<leftrightarrow> b] \<bullet> Y \<Longrightarrow> [a \<leftrightarrow> b] \<bullet> X \<approx> Y"
+  proof -
+    assume "X \<approx> [a \<leftrightarrow> b] \<bullet> Y"
+    hence "[a \<leftrightarrow> b] \<bullet> X \<approx> \<epsilon> \<bullet> Y"
+      using ptrm_alpha_equiv_prm ptrm_prm_apply_compose prm_unit_involution by metis
+    thus ?thesis using ptrm_prm_apply_id by metis
+  qed
+  from 1 and 2 show "[a \<leftrightarrow> b] \<bullet> X \<approx> Y \<longleftrightarrow> X \<approx> [a \<leftrightarrow> b] \<bullet> Y" by blast
 qed
 
 lemma ptrm_alpha_equiv_fvs_transfer:
   assumes "A \<approx> [a \<leftrightarrow> b] \<bullet> B" and "a \<notin> ptrm_fvs B"
   shows "b \<notin> ptrm_fvs A"
-proof(cases "a = b")
-  assume "a = b"
-  hence "A \<approx> B" using prm_unit_equal_id ptrm_prm_apply_id assms(1) by metis
-  hence "ptrm_fvs A = ptrm_fvs B" using ptrm_alpha_equiv_fvs by auto
-  thus ?thesis using `a = b` assms(2) by auto
-  next
-
-  assume "a \<noteq> b"
-  thus ?thesis proof(cases "b \<in> ptrm_fvs B")
-    case True
-      have *: "b \<notin> ptrm_fvs B - {b} \<union> {a}" using assms `a \<noteq> b` by simp
-      have "ptrm_fvs A = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using ptrm_alpha_equiv_fvs assms by metis
-      moreover have "... = [a \<leftrightarrow> b] {$} ptrm_fvs B" using ptrm_prm_fvs by metis
-      moreover have "... = [b \<leftrightarrow> a] {$} ptrm_fvs B" using prm_unit_commutes by metis
-      moreover have "... = ptrm_fvs B - {b} \<union> {a}" using prm_set_unit_action `a \<notin> ptrm_fvs B` `b \<in> ptrm_fvs B` by metis
-      ultimately have "ptrm_fvs A = ptrm_fvs B - {b} \<union> {a}" by metis
-      thus ?thesis using * by auto
-      next
-    case False
-      have "ptrm_fvs A = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B)" using ptrm_alpha_equiv_fvs assms by metis
-      moreover have "ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B) = [a \<leftrightarrow> b] {$} ptrm_fvs B" using ptrm_prm_fvs by metis
-      moreover have "... = ptrm_fvs B" using prm_set_unit_inaction `a \<notin> ptrm_fvs B` `b \<notin> ptrm_fvs B` by metis
-      ultimately have "ptrm_fvs A = ptrm_fvs B" by metis
-      thus ?thesis using `b \<notin> ptrm_fvs B` by auto
-    next
-  qed
+proof -
+  from `A \<approx> [a \<leftrightarrow> b] \<bullet> B` have "[a \<leftrightarrow> b] \<bullet> A \<approx> B" using ptrm_swp_transfer by metis
+  hence "ptrm_fvs B = [a \<leftrightarrow> b] {$} ptrm_fvs A"
+    using ptrm_alpha_equiv_fvs ptrm_prm_fvs by metis
+  hence "a \<notin> [a \<leftrightarrow> b] {$} ptrm_fvs A" using `a \<notin> ptrm_fvs B` by metis
+  hence "b \<notin> [a \<leftrightarrow> b] {$} ([a \<leftrightarrow> b] {$} ptrm_fvs A)"
+    using prm_set_notmembership prm_unit_action by metis
+  thus ?thesis using prm_set_apply_compose prm_unit_involution prm_set_id by metis
 qed
 
 lemma ptrm_prm_agreement_equiv:
@@ -385,7 +300,7 @@ using assms proof(induction M arbitrary: \<pi> \<sigma>)
           thus ?thesis using PFn by (simp add: ptrm_prm_apply_compose)
         qed
         ultimately show ?thesis using ptrm_alpha_equiv.fn2 by simp
-      next
+      next    
     qed
   next
   case (PPair A B)
@@ -645,34 +560,6 @@ fun ptrm_infer_type :: "'a typing_ctx \<Rightarrow> 'a ptrm \<Rightarrow> type o
      (Some (TPair \<tau> \<sigma>)) \<Rightarrow> Some \<sigma>
    | _ \<Rightarrow> None
    )"
-
-lemma ptrm_infer_type_weaken:
-  assumes "y \<notin> ptrm_fvs X"
-  shows "ptrm_infer_type \<Gamma> X = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)) X"
-using assms 
-  apply (induction X arbitrary: \<Gamma>, simp, simp, simp)
-  defer
-  apply (simp, simp, simp)
-proof -
-  case (PFn x T A)
-    consider "y = x" | "y \<noteq> x \<and> y \<notin> ptrm_fvs A" using `y \<notin> ptrm_fvs (PFn x T A)` by auto
-    thus ?case proof(cases)
-      case 1
-        have "\<Gamma>(y \<mapsto> \<tau>)(x \<mapsto> T) = \<Gamma>(x \<mapsto> T)" using `y = x` by simp
-        thus ?thesis by (metis ptrm_infer_type.simps(4))
-      next
-      case 2
-        hence "y \<noteq> x" and "y \<notin> ptrm_fvs A" by auto
-        hence "\<And>\<Gamma>. ptrm_infer_type \<Gamma> A = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)) A" using PFn.IH by metis
-        hence "\<And>\<Gamma>. ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(x \<mapsto> T)(y \<mapsto> \<tau>)) A"
-          by auto
-        hence "\<And>\<Gamma>. ptrm_infer_type (\<Gamma>(x \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(y \<mapsto> \<tau>)(x \<mapsto> T)) A"
-          using `y \<noteq> x` by simp
-        thus ?thesis using ptrm_infer_type.simps(4) by metis
-      next
-    qed
-  next
-qed
 
 lemma ptrm_infer_type_swp_types:
   assumes "a \<noteq> b"

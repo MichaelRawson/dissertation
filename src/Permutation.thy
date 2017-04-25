@@ -238,12 +238,9 @@ proof(induction \<pi>, simp add: preprm_ext_def preprm_id_def preprm_compose_def
   case (Cons p ps)
     hence IH: "(preprm_compose (rev ps) ps) =p preprm_id" by auto
 
-    obtain p1 p2 where "p1 = fst p" "p2 = snd p" by auto
-    hence "p = (p1, p2)" by simp
- 
     have "(preprm_compose (rev (p # ps)) (p # ps)) =p (preprm_compose (rev ps) (preprm_compose (preprm_compose [p] [p]) ps))"
       unfolding preprm_compose_def using preprm_ext_reflexive by simp
-    moreover have "... =p (preprm_compose (rev ps) (preprm_compose preprm_id ps)) "
+    moreover have "... =p (preprm_compose (rev ps) (preprm_compose preprm_id ps))"
       using preprm_singleton_involution preprm_ext_compose_left preprm_ext_compose_right by metis
     moreover have "... =p (preprm_compose (rev ps) ps)"
       unfolding preprm_compose_def preprm_id_def using preprm_ext_reflexive by simp
@@ -260,7 +257,6 @@ lemma preprm_inv_ext:
   assumes "\<pi> =p \<sigma>"
   shows "preprm_inv \<pi> =p preprm_inv \<sigma>"
 proof -
-  thm preprm_inv_compose
   have
     "(preprm_compose (preprm_inv (preprm_inv \<pi>)) (preprm_inv \<pi>)) =p preprm_id"
     "(preprm_compose (preprm_inv (preprm_inv \<sigma>)) (preprm_inv \<sigma>)) =p preprm_id"
@@ -351,6 +347,16 @@ by(transfer, metis preprm_inv_compose)
 definition prm_set :: "'a prm \<Rightarrow> 'a set \<Rightarrow> 'a set" (infix "{$}" 140) where
   "prm_set \<pi> S \<equiv> image (prm_apply \<pi>) S"
 
+lemma prm_set_apply_compose:
+  shows "\<pi> {$} (\<sigma> {$} S) = (\<pi> \<diamondop> \<sigma>) {$} S"
+unfolding prm_set_def proof -
+  have "op $ \<pi> ` op $ \<sigma> ` S = (\<lambda>x. \<pi> $ x) ` (\<lambda>x. \<sigma> $ x) ` S" by simp
+  moreover have "... = (\<lambda>x. \<pi> $ (\<sigma> $ x)) ` S" by auto
+  moreover have "... = (\<lambda>x. (\<pi> \<diamondop> \<sigma>) $ x) ` S" using prm_apply_composition by metis
+  moreover have "... = (\<pi> \<diamondop> \<sigma>) {$} S" using prm_set_def by metis
+  ultimately show "op $ \<pi> ` op $ \<sigma> ` S = op $ (\<pi> \<diamondop> \<sigma>) ` S" by metis
+qed
+
 lemma prm_set_membership:
   assumes "x \<in> S"
   shows "\<pi> $ x \<in> \<pi> {$} S"
@@ -365,6 +371,16 @@ by (simp add: inj_image_mem_iff prm_apply_injective)
 lemma prm_set_singleton:
   shows "\<pi> {$} {x} = {\<pi> $ x}"
 unfolding prm_set_def by auto
+
+lemma prm_set_id:
+  shows "\<epsilon> {$} S = S"
+unfolding prm_set_def
+proof -
+  have "op $ \<epsilon> ` S = (\<lambda>x. \<epsilon> $ x) ` S" by simp
+  moreover have "... = (\<lambda>x. x) ` S" using prm_apply_id by metis
+  moreover have "... = S" by auto
+  ultimately show "op $ \<epsilon> ` S = S" by metis
+qed
 
 lemma prm_set_unit_inaction:
   assumes "a \<notin> S" and "b \<notin> S"
@@ -439,7 +455,7 @@ lemma prm_set_distributes_difference:
 unfolding prm_set_def using prm_apply_injective image_set_diff by metis
 
 definition prm_disagreement :: "'a prm \<Rightarrow> 'a prm \<Rightarrow> 'a set" ("ds") where
-  "prm_disagreement \<pi> \<sigma> == {x. \<pi> $ x \<noteq> \<sigma> $ x}"
+  "prm_disagreement \<pi> \<sigma> \<equiv> {x. \<pi> $ x \<noteq> \<sigma> $ x}"
 
 lemma prm_disagreement_ext:
   shows "x \<in> ds \<pi> \<sigma> \<equiv> \<pi> $ x \<noteq> \<sigma> $ x"
