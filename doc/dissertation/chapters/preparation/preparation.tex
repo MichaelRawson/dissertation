@@ -7,7 +7,7 @@ Some mathematical theory is also required to state the problem more precisely, a
 In this chapter I discuss the background theory required to begin work on the formalisation, briefly introduce my main tool, Isabelle, and produce a list of requirements.
 
 \section{\(\lambda\)-Calculus}
-The \(\lambda\)-calculus\cite{lambda-overview} is a formal system of computation represented by operations on an set of terms.
+The \(\lambda\)-calculus~\cite{lambda-overview} is a formal system of computation represented by operations on an set of terms.
 \begin{definition}
 Terms \(M\) are inductively defined as follows.
 \begin{enumerate}
@@ -104,7 +104,7 @@ An arrow type \(\tau \to \tau\) from one type to another.
 \end{definition}
 
 Adding simple types to the binders of the untyped calculus produces the \emph{simply-typed} \(\lambda\)-calculus.
-The typing relation \(\Gamma \vdash M : \tau\) is given inductively in figure \ref{fig:typing}.
+The typing relation \(\Gamma \vdash M : \tau\) is given inductively in Figure \ref{fig:typing}.
 \(\Gamma\) here is a typing context: a partial function from variables to types.
 
 \begin{figure}
@@ -212,10 +212,10 @@ datatype 'a trm =
   | App of ('a trm * 'a trm)
 \end{minted}
 and e.g. the constant function would be represented as \mintinline{SML}{Fn (fn x => Fn (fn y => x))}.
-While this implementation neatly avoids many of the implementation issues of other approaches, it is not always possible to show certain properties of names with this representation\cite{HOAS}.
+While this implementation neatly avoids many of the implementation issues of other approaches, it is not always possible to show certain properties of names with this representation~\cite{HOAS}.
 
 Finally, the techniques under the heading of ``nominal methods'' are a relatively-new approach of dealing with names, which importantly retain the explicit representation of names, as in the na\"ive version above.
-The technique uses a different definition of \(\alpha\)-equivalence based on \emph{swapping} (rather than substituting) names in a given expression\cite{nominal}.
+The technique uses a different definition of \(\alpha\)-equivalence based on \emph{swapping} (rather than substituting) names in a given expression~\cite{nominal}.
 This was the approach that I chose.
 
 \begin{definition}
@@ -234,7 +234,7 @@ z & M = z, z \notin \{x, y\}\\
 \end{cases}
 \]
 \end{definition}
-An equivalence \(\sim\) can be defined using only this operation, as shown in figure \ref{fig:nominal}.
+An equivalence \(\sim\) can be defined using only this operation, as shown in Figure \ref{fig:nominal}.
 \begin{figure}
 \begin{mathpar}
 \inferrule[var]
@@ -252,7 +252,7 @@ An equivalence \(\sim\) can be defined using only this operation, as shown in fi
 \caption{an equivalence defined in terms of swappings}
 \label{fig:nominal}
 \end{figure}
-It can further be shown\cite{nominal} that \(\sim\) is precisely the same as \(\equiv_\alpha\), and hence can be used in place of it.
+It can further be shown~\cite{nominal} that \(\sim\) is precisely the same as \(\equiv_\alpha\), and hence can be used in place of it.
 
 Therefore my strategy for representing terms modulo \(\alpha\)-equivalence will be to develop a theory of swappings, then use it to argue that \(\sim\) is an equivalence relation, and finally produce a new type as a quotient of the concrete type with respect to \(\sim\).
 
@@ -267,13 +267,13 @@ The idea of picking a fresh item for a given set is common in proofs about the n
 As a result, I also need a verified implementation of freshness to argue neatly about binding in Isabelle.
 
 \section{Isabelle}
-Isabelle\cite{isabelle} is a proof assistant, supporting several separate logics (although I use the default), a number of automated theorem provers to remove tedious proof steps, and a human-readable proof script language, Isar.
+Isabelle~\cite{isabelle} is a proof assistant, supporting several separate logics (although I use the default), a number of automated theorem provers to remove tedious proof steps, and a human-readable proof script language, Isar.
 Proofs are created and checked in Isabelle by providing any definitions (functions, datatypes, inductive definitions, abbreviations) you wish to make (which Isabelle will take as axioms, within the restrictions of the definition implementation), then arguing any theorems you wish to prove in the context of these definitions.
 Since each step is checked, the theorems must be logically correct with respect to the definitions used.
 There are also a variety of other useful features that Isabelle provides that I use in my project.
 
 Quotient types are used heavily in my dissertation, both for equivalence of permutations (introduced later to implement the nominal approach more easily), and for \(\alpha\)-equivalence.
-Isabelle provides this mechanism via a \texttt{quotient\_datatype} command\cite{isabelle-quotient}, which takes a base type \(R\) and an equivalence relation \(\sim\) and produces a new quotient type \(Q\), \(\mathrm{Abs}\) and \(\mathrm{Rep}\).
+Isabelle provides this mechanism via a \texttt{quotient\_datatype} command~\cite{isabelle-quotient}, which takes a base type \(R\) and an equivalence relation \(\sim\) and produces a new quotient type \(Q\), \(\mathrm{Abs}\) and \(\mathrm{Rep}\).
 It also provides ``lifting'' and ``transfer'' operations, useful for lifting operations from the base type to the quotient type, and transferring proof obligations from the quotient type to the base type.
 
 Type classes are another Isabelle feature that I used.

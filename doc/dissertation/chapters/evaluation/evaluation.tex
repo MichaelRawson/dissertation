@@ -1,5 +1,8 @@
 \chapter{Evaluation}
-In a sense, evaluating this project should not be necessary: it is \emph{verified}, so the reasoning (if not the definitions) within it cannot be doubted without also doubting the correctness of Isabelle itself.
+While this project is \emph{verified}, there are several places in which it can still fail.
+The project as a whole rests on the correctness of Isabelle's logical kernel, and on the correctness of its code extraction mechanism.
+If either of these (although the code extraction mechanism is far more likely) were to be shown incorrect, my project is also potentially incorrect.
+In addition, the definitions encoded within Isabelle may not be definitions that match the conventional definitions --- they could be technically incorrect, surprising, or vacuous.
 However, there are other metrics to the project's success other than its relative truth:
 \begin{itemize}
 \item
@@ -9,16 +12,16 @@ Therefore, manually-written tests should check the expected properties of the ca
 Performance: extracted algorithms should perform well, at least asymptotically.
 It is difficult to argue this directly in a proof assistant, so it is easier to produce empirical data and show that statistically the algorithm works as expected.
 \item
-Comparison to other work: of course, there is existing academic work in this general area, and comparisons must be drawn to highlight successes and failures in my approach.
+Comparison to other work: there is existing academic work in this general area, and comparisons must be drawn to highlight successes and failures in my approach.
 The choice of representation especially in the project is somewhat unusual, and comes with advantages and disadvantages compared to other approaches.
 \end{itemize}
 
 The majority of the practical evaluation was directed at the extracted type inference algorithm, but there is also some testing of freshened variables and the representation of the calculus itself.
 
 \section{Framework for Evaluation}
-Isabelle supports four programming languages in its code-extraction machinery: Standard ML, OCaml, Haskell, and Scala\cite{codegen-reference}.
+Isabelle supports four programming languages in its code-extraction machinery: Standard ML, OCaml, Haskell, and Scala~\cite{codegen-reference}.
 Haskell was the chosen language for evaluating the type inference algorithm: it offered better library and runtime support for testing and benchmarking than Standard ML and OCaml, but remained closer to the algorithm expressed in Isabelle than Scala (which has a more complex type system).
-To build and evaluate the extracted code, I used Stack\cite{stack}, a tool for Haskell that provides sandboxing, compiler and package isolation, build systems, and support for running tests and benchmarks, in combination with GHC\cite{GHC}, the \emph{de facto} Haskell compiler.
+To build and evaluate the extracted code, I used Stack~\cite{stack}, a tool for Haskell that provides sandboxing, compiler and package isolation, build systems, and support for running tests and benchmarks, in combination with GHC~\cite{GHC}, the \emph{de facto} Haskell compiler.
 
 Isabelle's code extraction mechanism immediately produced correct code that resembled the formalisation very well without further tweaking, but there were several problems that needed to be fixed without touching (and thereby invalidating) the extracted code.
 I added a new module \emph{Utils} to the extracted code which provided some utilities for testing and benchmarking and fixed the problems:
@@ -67,10 +70,18 @@ had to be added manually to use the freshness implementation.
 A common method of testing software is unit testing, in which code is subjected to single pass/fail test units.
 This works well for most cases, but the mathematical nature of the domain means that lots of test cases ought to be universally quantified over their inputs, rather than a fixed constant as in unit testing.
 Property testing, on the other hand, generates random test data and checks a property holds for all of them.
-This technique is more well-suited to the problem: it approximates universal quantification, and the random inputs find edge-cases quickly.
+This technique is better suited to the problem: it approximates universal quantification, and the random inputs find edge-cases quickly.
 
-To implement property testing, I used HSpec\cite{hspec}, a library for structuring Haskell tests, combined with QuickCheck\cite{quickcheck}, a library for property testing.
-A test program using these libraries looks like figure \ref{fig:example-test}.
+To implement property testing, I used HSpec~\cite{hspec}, a library for structuring Haskell tests, combined with QuickCheck~\cite{quickcheck}, a library for property testing.
+A test program using these libraries looks like Figure \ref{fig:example-test}.
+HSpec and QuickCheck together provide some useful functions which I use to write my tests:
+\begin{description}
+\item[\texttt{hspec}] --- run a suite of tests
+\item[\texttt{describe}] --- group a set of tests by which ``feature'' they belong to
+\item[\texttt{it}] --- describe a single test
+\item[\texttt{property}] --- test a QuickCheck property in HSpec
+\item[\texttt{forAll}] --- check that a property holds when quantified over a given generator
+\end{description}
 
 %TC:ignore
 \begin{figure}
@@ -143,7 +154,7 @@ Consider all free variables universally quantified (i.e. randomly-generated in t
 \end{itemize}
 \end{itemize}
 
-All tests pass, producing output similar to that shown in figure \ref{fig:tests-output}.
+All tests pass, producing output similar to that shown in Figure \ref{fig:tests-output}.
 While property tests can never provide absolute confidence in the project (in this case the parameter space is infinite), they do produce empirical evidence to \emph{suggest} correctness.
 
 \begin{figure}
@@ -188,7 +199,7 @@ Finished in 48.3063 seconds
 
 \section{Benchmarking and Performance}
 Inputs to the type inference algorithm can be given a notion of size by counting the number of nodes in the syntax tree of the input.
-For instance, the term \(\pi_1((\lambda (x : 0). (x, \unit))\ \unit)\) is shown in figure \ref{fig:example-tree} and has 7 syntactic nodes.
+For instance, the term \(\pi_1((\lambda (x : 0). (x, \unit))\ \unit)\) is shown in Figure \ref{fig:example-tree} and has 7 syntactic nodes.
 Formally, the size of a term \(M\), \(|M|\), can be given recursively by
 \[
 |M| =
@@ -204,8 +215,21 @@ Formally, the size of a term \(M\), \(|M|\), can be given recursively by
 \]
 
 Given this, the formalised type inference algorithm can be seen (by induction) to have time complexity \(O(|M|)\) with respect to the input \(M\), assuming that finite map update/lookup operations are \(O(1)\).
-However, it's difficult to see how to show this formally in Isabelle, and there is no reason to worry about performance until the code is extracted anyway --- at which point the code may have drastically different performance characteristics than the idealised formal specification.
+However, it is difficult to see how to show this formally in Isabelle, and there is no reason to worry about performance until the code is extracted anyway --- at which point the code may have drastically different performance characteristics than the idealised formal specification.
+This is because Isabelle does not directly ``project out'' out the function definition (as type-theoretic proof assistants such as Coq~\cite{coq-extract} often do with proof terms), but instead perform a series of translations.
+The steps~\cite{HRS} are as follows:
+\begin{enumerate}
+\item
+Re-write the function definition using a set of rules encoded in a higher-order rewite system --- a rewrite system on typed \(\lambda\)-terms --- these may be automatically generated by e.g. the function definition, or manually by proving a rewriting to hold in Isabelle.
+\item
+Once the re-writing has taken place, the result is encoded in an intermediate language similar to Haskell, known as Mini-Haskell.
+\item
+If the target language is one without typeclasses (i.e. not Haskell), then the typeclasses in Isabelle are translated into a dictionary structure using a translation~\cite{dictionary-translation} originally used to specify Haskell's typeclasses.
+\item
+Finally, the resulting intermediate language statements are translated directly into functional programming languages which allow for pure code: otherwise, the translations would not be valid.
+\end{enumerate}
 
+Any of these steps may cause unpredictable performance characteristics.
 Therefore, we are left to try and establish performance characteristics of the extracted code by the scientific method, rather than mathematically.
 
 \begin{figure}
@@ -226,7 +250,9 @@ Generate representative test data of several different orders of magnitude in th
 \item
 Benchmark the algorithm on each of these test inputs and record performance.
 \item
-Correlate (logarithmic) time-to-run against (logarithmic) input size to determine an asymptotic performance bound.
+Correlate (logarithmic) runtime against (logarithmic) input size to determine an asymptotic performance bound.
+A log/log plot is used since the range of values is too large to plot reasonably, but I do not wish to disturb the relationship between the data points.
+Plotting both logarithmically allows displaying the relationship between inputs and runtime of several different orders of magnitude.
 \end{enumerate}
 
 \subsubsection{Generating Data}
@@ -234,9 +260,11 @@ Ideally the data generated would be (pseudo-) random, in order to prevent any pa
 Another constraint is that the expression must be well-typed in general, or the error propagating through will remove most of the processing from the benchmark.
 
 Unfortunately, QuickCheck's random generation procedures turned out to be too slow to produce large randomised inputs efficiently.
+QuickCheck uses the standard random package for generic applications which is not optimised for speed, and QuickCheck itself is not designed to produce large inputs, as its main use case is finding edge-cases (which tend to be smaller).
+Benchmarking showed that random number generation was the bottleneck, but perhaps this would be different if QuickCheck were designed differently.
 Instead, I used deterministic algorithms to produce large inputs, according to a variety of patterns:
 \begin{enumerate}
-\item well-typed terms in a repeating pattern, using all datatype constructors
+\item well-typed terms, using all datatype constructors
 \item pairs, with each sub-term a pair
 \item projection functions applied to pairs repeatedly
 \item applications, with each sub-term of equal size
@@ -245,20 +273,36 @@ Instead, I used deterministic algorithms to produce large inputs, according to a
 \item a sequence of binders, followed by bound variables
 \end{enumerate}
 These are designed to test general performance on varied inputs, on specific inputs, and finally to stress the typing context operations.
+I then used the patterns to generate data, sized from 1, increasing by a factor of 10 to 100,000, and wrote the data to file for reproducibility (available under \texttt{infer/samples} in the source tree submitted with this dissertation).
 
-I then used the patterns to generate data, sized from 1, increasing by a factor of 10 to 100,000, and wrote the data to file for reproducibility.
+Producing well-typed terms was quite tricky, even for this simple type system.
+The general approach was for each generator to assume that any recursive calls generated well-typed terms, and maintain the invariant that the result it generates is also well-typed.
+Then, the matter of choosing which sort of node was to be produced at any step in the recursive algorithm was done by taking the remainder of the size required and producing the corresponding type of data, which produced a well-distributed tree for a deterministic algorithm.
+For instance, the algorithm for testing projections is shown in Figure \ref{figure:projection-sample}.
+
+\begin{figure}
+\begin{minted}{Haskell}
+benchProjections :: Int -> Term
+benchProjections n
+  | (n <= 0) = PUnit
+  | (n `mod` 2 == 0) = PSnd . PPair PUnit $ benchProjections (n - 2)
+  | otherwise = PFst . flip PPair PUnit $ benchProjections (n - 2)
+\end{minted}
+\caption{The Haskell function generating a test of projection performance based on a size parameter.}
+\label{figure:projection-sample}
+\end{figure}
 
 \subsubsection{Benchmarking}
 Benchmarking algorithms on small inputs (``micro-benchmarking'') has the problem of jitter: outside factors such as cache effects, branch prediction and kernel scheduling can all cause the same algorithm with the same input to run at different rates.
 
 Haskell's laziness also adds another problem --- since the parameter passed to the function is not strictly-evaluated, the first evaluation of the function can take significantly longer as in this case the input needs to be loaded from disk and parsed before being processed.
 
-Both these problems were solved by using the Criterion micro-benchmarking library\cite{criterion}.
+Both these problems were solved by using the Criterion micro-benchmarking library~\cite{criterion}.
 This solution deals with jitter by running the algorithm repeatedly and differing numbers of times to generate enough samples for a statistically significant result (generally an \(R^2\) value exceeding 0.99), and with laziness by evaluating the argument to a normal form first.
 
 \subsection{Results}
 Results were extremely positive for the \(O(|M|)\) hypothesis.
-Figure \ref{fig:results-welltyped} shows a strong linear correlation for the general-performance dataset, while figure \ref{fig:results-combined} supports this further, showing that every sort of structure produces linear performance on the target range.
+Figure \ref{fig:results-welltyped} shows a strong linear correlation for the general-performance dataset, while Figure \ref{fig:results-combined} supports this further, showing that every sort of structure produces linear performance on the target range.
 The high levels of correlation on every graph lend extra credit to the hypothesis of a linear-time algorithm.
 
 \begin{figure}
@@ -300,7 +344,7 @@ The high levels of correlation on every graph lend extra credit to the hypothesi
  \includegraphics[width=\linewidth]{chapters/evaluation/plots/lookup}
  \caption{typing context stress}
 \end{subfigure}
-\caption{log-log plots (similar to figure \ref{fig:results-welltyped}), showing performance on specialised inputs}
+\caption{log-log plots (similar to Figure \ref{fig:results-welltyped}), showing performance on specialised inputs}
 \label{fig:results-combined}
 \end{figure}
 
@@ -323,7 +367,7 @@ empty = \x -> Nothing
 In the case of the extracted inference algorithm, this implementation of map should result in quadratic slowdown when applied to binders followed by variable lookup, as the closure representing the finite map grows in size.
 Unexpectedly, in the typing-context dataset, this does not appear to be the case: even profiling the executable does not show significant time spent in the closure, or in the equality implementation.
 
-However, I would still expect a reasonable implementation with e.g. an ordered map to be more performant: figure \ref{fig:results-map} shows that a hand-implemented version using Haskell's \emph{containers} ordered-map implementation is still linear in the size of the input (as expected), but the implementation is considerably slower than the na\"ive version.
+However, I would still expect a reasonable implementation with e.g. an ordered map to be more performant: Figure \ref{fig:results-map} shows that a hand-implemented version using Haskell's \emph{containers} ordered-map implementation is still linear in the size of the input (as expected), but the implementation is considerably slower than the na\"ive version.
 
 \begin{figure}
 \begin{subfigure}{.49\textwidth}
@@ -341,13 +385,14 @@ However, I would still expect a reasonable implementation with e.g. an ordered m
 \end{figure}
 
 \section{Comparison to Previous Work}
-There have of course been other formalisations of typed \(\lambda\)-calculi.
+There have been other Isabelle formalisations of typed \(\lambda\)-calculi.
 Isabelle has its own implementation (in \texttt{\textasciitilde\textasciitilde/src/HOL/Proofs/Lambda/}), which I will use as a context in which to evaluate my project --- using another implementation written with different proof tools would confuse the issue, as different tools produce different approaches to play to their strengths and weaknesses.
 
 Despite using the same tooling, the two implementations are still very different: Isabelle's implementation uses chained, tactic-style reasoning almost exclusively, introduces types separately to terms, and uses a nameless representation of bound variables, whereas my project uses explicit reasoning steps almost exclusively, attaches an explicit type to every binder, and uses a named representation, combined with the use of a quotient type to represent \(\alpha\)-equivalence.
 
 \subsection{Chained Tactics vs. Isar}
-Using only tactics does tend to make the proof shorter (as can be seen from the proof lengths for comparable lemmas in both implementations), but can also (albeit subjectively) decrease readability of the generated proof\cite{isar-phd}.
+Using only tactics does tend to make the proof shorter (as can be seen from the proof lengths for comparable lemmas in both implementations: subject reduction is shown in approximately 15 lines in an apply-style proof, but my more explicitly-reasoned proof takes over 90), but can also (albeit subjectively) decrease readability of the generated proof~\cite{isar-phd}.
+It should be noted that line count is not in general a good metric for proof length: the use of previous results and different proof approaches, proof steps, and tools can affect line count significantly.
 Another advantage of the Isar approach is ease of learning: if I could not get a tactic to show what I wanted, it was easier to break down the proof statement into smaller steps using Isar and invoke a prover on each than it was to learn what sequence of tactic applications would produce the desired result.
 
 \subsection{Church- vs. Curry-style Types}
@@ -398,18 +443,23 @@ M[N/x][L/y]
 	&\equiv M[L/y][N[L/y]/x]
 \end{align*}
 
+These terms also form a nominal set with similar structure to the original calculus, so all results still hold with little modification.
 In this way a level of modularity and re-usability can be achieved, without sacrificing Church-style typing.
-Had I thought of this earlier, I would undoubtedly have used this approach in my project!
+Currently, the amount of project-specific Isabelle stands at around 4000 lines, with around 500 lines of reusable theories.
+With this modification, the majority of work would be re-usable, and the only project-specific work to deal with names would be defining a bijection with these abstract terms and any language with similar semantics about binders.
+Researching and implementing this more general approach is left as future work.
 
 \subsection{Approaches to Binders}
 The treatment of binders is a difficult part of the formalisation of any system that uses them.
-The authors of the \textsc{PoplMark} challenge\cite{poplmark} specifically mention this topic, and note that, of the solutions they have seen, there was no clear winner.
+The authors of the \textsc{PoplMark} challenge~\cite{poplmark} specifically mention this topic, and note that, of the solutions they have seen, there was no clear winner.
 
-It can be seen from the extremely-small Isabelle implementation of deBruijn indices that a nameless representation (where \(\alpha\)-equivalence is simply equality) is much easier to formalise initially than the approach taken in my project --- no permutation lemmas, no \(\alpha\)-equivalence arguments, no quotient types...
+It can be seen from the extremely-small Isabelle implementation of deBruijn indices that a nameless representation (where \(\alpha\)-equivalence is simply equality) is much easier to formalise initially than the approach taken in my project --- no permutation lemmas, no \(\alpha\)-equivalence arguments, no quotient types and so on.
 However, the subsequent effort required to argue simple theorems such as the substitution lemma described above with deBruijn indices is significant.
-Berghofer and Urban argue convincingly\cite{head-to-head} that a nominal representation has many advantages over indices, particularly in the context of the \textsc{PoplMark} challenge, once the initial infrastructure has been set up.
+Berghofer and Urban argue~\cite{head-to-head} that a nominal representation has many advantages over indices, particularly in the context of the \textsc{PoplMark} challenge, once the initial infrastructure has been set up.
+They mention that de Bruijn indices are convenient to define, but become tedious after a while (at least in the context of \textsc{PoplMark}), while nominal techniques have a significant setup cost but are convenient thereafter in general.
+However, the paper does not draw a significant conclusion as the scope of usage is limited to only a few problems.
 
-I think in this project the amount of effort required to implement a nominal representation was outweighed by the later benefits.
+Assuming that Berghofer and Urban's conclusions and my own are correct, then, nameless representations are a good choice for (shorter) implementations that do not use the binding aspects of \(\lambda\)-calculus much, whereas the initial effort of nominal methods produce easier results when applied to more difficult theorems about binding.
 Additionally, the named representation is arguably more human-readable and presents less notational impedance than the nameless version, promoting later re-use.
 
 \subsection{Nominal Implementation}
@@ -421,6 +471,7 @@ I had to manually implement:
 \begin{itemize}
 \item
 A theory of permutations.
+While a theory was added to Isabelle's library after I began my project, initially there was no implementation of permutations in the standard library.
 \item
 (strong) Induction principles for \(\alpha\)-equivalent terms.
 \item
@@ -431,5 +482,8 @@ Inequality rules for these terms, such as \(\forall A, B.\ (A, B) \neq \unit\) -
 Structural equality rules, such as \(\forall A, B.\wrap{\pi_1(A) = \pi_1(B) \implies A = B}\).
 \item
 Proofs showing that functions on pre-quotient terms can also be functions on \(\alpha\)-equivalence classes, like the type inference function, then lifting them over the quotient.
-This property is not true in general (consider the function that returns the bound variables of a term), but Nominal Isabelle provides a couple of ways to define functions which generate a proof obligation to show this property\cite{fresh-fun}.
+This property is not true in general (consider the function that returns the bound variables of a term), but Nominal Isabelle provides a couple of ways to define functions which generate a proof obligation to show this property~\cite{fresh-fun}.
 \end{itemize}
+
+Nominal Isabelle would have saved a considerable amount of effort, and made several tedious aspects of the project significantly shorter.
+However, the ability to extract code allowed the project to be more practically useful, and testing this allowed for another dimension that would not have been avaible with Nominal Isabelle.

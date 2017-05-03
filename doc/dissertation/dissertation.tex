@@ -1,6 +1,5 @@
 \documentclass[12pt,a4paper,twoside,openright]{report}
-% department stuff -- hyperref breaks things?
-%\usepackage[pdfborder={0 0 0}]{hyperref}
+\usepackage[pdfborder={0 0 0}]{hyperref}
 \usepackage[margin=25mm]{geometry}
 \usepackage{standalone}
 
@@ -16,8 +15,9 @@
 \usepackage{isabellesym}
 \usepackage{comment}
 \usepackage[outputdir=output]{minted}
-\usepackage[backend=bibtex,sorting=none]{biblatex}
 
+% bibliography
+\usepackage[backend=bibtex, sorting=none]{biblatex}
 \bibliography{dissertation}
 \bibliography{proposal/proposal}
 
@@ -37,7 +37,7 @@
 \newcommand{\wrap}[1]{\left(#1\right)}
 \newcommand{\swap}{\leftrightarrow}
 \newcommand{\dollar}{\mathbin{\textrm{\footnotesize{\textbf{\$}}}}}
-\newcommand{\image}{\mathbin{\{\$\}}}
+\newcommand{\image}{\mathbin{\textrm{\footnotesize{\textbf{\{\$\}}}}}}
 \newcommand{\fvs}{\mathrm{fvs}}
 \newtheorem*{definition}{Definition}
 \newtheorem{lemma}{Lemma}
@@ -47,9 +47,6 @@
  {\end{isabellebody}\setlength{\leftskip}{0cm}\bigskip}
 
 \begin{document}
-% bibliography style doesn't work either?
-%\bibliographystyle{plain}
-
 \pagestyle{empty}
 \rightline{\LARGE\textbf{Michael Rawson}}
 \vspace*{60mm}
@@ -65,10 +62,9 @@ Robinson College\\[5mm]
 \pagestyle{plain}
 \chapter*{Proforma}
 {\large
-\begin{tabular}{ll}
+\begin{tabular}{p{0.3\textwidth}p{0.7\textwidth}}
 Name:              & \bf Michael Rawson\\
 College:           & \bf Robinson College\\
-%lol, FIXME
 Project Title:     & \bf \thetitle\\
 Examination:       & \bf Computer Science Tripos -- Part II, July 2017\\
 Word Count:        & 0xDEADBEEF\footnotemark[1]\\
@@ -97,11 +93,9 @@ I, Michael Rawson of Robinson College, being a candidate for Part II of the Comp
 \medskip
 \leftline{Date }
 \tableofcontents
-\listoffigures
 
 \newpage
 \section*{Acknowledgements}
-Who/what is conventional to put here?
 \pagestyle{headings}
 
 \input{chapters/introduction/introduction}
@@ -112,7 +106,6 @@ Who/what is conventional to put here?
 \addcontentsline{toc}{chapter}{Bibliography}
 \printbibliography
 \appendix
-\chapter{Future Appendix}
 \chapter{Project Proposal}
 \input{proposal/proposal}
 \end{document}

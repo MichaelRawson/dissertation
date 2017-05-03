@@ -2,7 +2,7 @@
 The work is split into four modules, or what Isabelle calls \emph{theories}.
 The first (\emph{Fresh}) deals with fresh names and implementations of freshness, the second (\emph{Permutation}) with a theory of permutations, and the third and fourth (\emph{PreSimplyTyped} and \emph{SimplyTyped}) with \(\lambda\)-terms, before and after the quotient respectively.
 All theories develop upon basic theorems shown in Isabelle's standard library, called \emph{Main}.
-A dependency graph is shown in figure \ref{fig:dependencies}.
+A dependency graph is shown in Figure \ref{fig:dependencies}.
 
 \begin{figure}
 \centering
@@ -14,7 +14,7 @@ A dependency graph is shown in figure \ref{fig:dependencies}.
 \section{Freshness}
 The idea of fresh variables is implemented first, so it can be used later in arguments about fresh names in a given \(\lambda\)-term.
 The implementation should take a set (of some type, since we wish to be parametric) and produce an element not in that set.
-In order to specify an interface over an arbitrary type, I used Isabelle's typeclass mechanism to make a class (i.e. an interface) for types that can produce a fresh element from a set:
+In order to specify an interface over an arbitrary type, I used Isabelle's typeclass mechanism~\cite{isabelle} to make a class (i.e. an interface) for types that can produce a fresh element from a set:
 
 \begin{implementation}
 \isacommand{class}\isamarkupfalse%
