@@ -366,6 +366,9 @@ empty = \x -> Nothing
 
 In the case of the extracted inference algorithm, this implementation of map should result in quadratic slowdown when applied to binders followed by variable lookup, as the closure representing the finite map grows in size.
 Unexpectedly, in the typing-context dataset, this does not appear to be the case: even profiling the executable does not show significant time spent in the closure, or in the equality implementation.
+It is possible that the compiler is able to spot the idiom of using a closure as a dictionary and optimise this away to a lookup table, or at least mitigate the poor performance of repeatedly branching to a new closure while looking up a key.
+However, this seems very unlikely given the current level of optimisations possible.
+GHC does use a somewhat unusual execution model~\cite{STG} as a compilation step, which may offer a performance improvement in this case, compared to the na\"ive idea of how such an algorithm is compiled to a physical architecture.
 
 However, I would still expect a reasonable implementation with e.g. an ordered map to be more performant: Figure \ref{fig:results-map} shows that a hand-implemented version using Haskell's \emph{containers} ordered-map implementation is still linear in the size of the input (as expected), but the implementation is considerably slower than the na\"ive version.
 
@@ -386,7 +389,7 @@ However, I would still expect a reasonable implementation with e.g. an ordered m
 
 \section{Comparison to Previous Work}
 There have been other Isabelle formalisations of typed \(\lambda\)-calculi.
-Isabelle has its own implementation (in \texttt{\textasciitilde\textasciitilde/src/HOL/Proofs/Lambda/}), which I will use as a context in which to evaluate my project --- using another implementation written with different proof tools would confuse the issue, as different tools produce different approaches to play to their strengths and weaknesses.
+Isabelle has its own implementation (which may be found in \texttt{src/HOL/Proofs/Lambda/} in the Isabelle source tree), which I will use as a context in which to evaluate my project --- using another implementation written with different proof tools would confuse the issue, as different tools produce different approaches to play to their strengths and weaknesses.
 
 Despite using the same tooling, the two implementations are still very different: Isabelle's implementation uses chained, tactic-style reasoning almost exclusively, introduces types separately to terms, and uses a nameless representation of bound variables, whereas my project uses explicit reasoning steps almost exclusively, attaches an explicit type to every binder, and uses a named representation, combined with the use of a quotient type to represent \(\alpha\)-equivalence.
 
