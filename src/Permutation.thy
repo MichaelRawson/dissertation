@@ -344,6 +344,18 @@ lemma prm_inv_compose:
   shows "(prm_inv \<pi>) \<diamondop> \<pi> = \<epsilon>"
 by(transfer, metis preprm_inv_compose)
 
+interpretation "'a prm": semigroup prm_compose
+unfolding semigroup_def by(transfer, simp add: preprm_compose_def preprm_ext_def)
+
+interpretation "'a prm": group prm_compose prm_id prm_inv
+unfolding group_def group_axioms_def
+proof -
+  have "semigroup op \<diamondop>" using "'a prm.semigroup_axioms".
+  moreover have "\<forall>a. \<epsilon> \<diamondop> a = a" by(transfer, simp add: preprm_id_def preprm_compose_def preprm_ext_def)
+  moreover have "\<forall>a. prm_inv a \<diamondop> a = \<epsilon>" using prm_inv_compose by blast
+  ultimately show "semigroup op \<diamondop> \<and> (\<forall>a. \<epsilon> \<diamondop> a = a) \<and> (\<forall>a. prm_inv a \<diamondop> a = \<epsilon>)" by blast
+qed
+
 definition prm_set :: "'a prm \<Rightarrow> 'a set \<Rightarrow> 'a set" (infix "{$}" 140) where
   "prm_set \<pi> S \<equiv> image (prm_apply \<pi>) S"
 
