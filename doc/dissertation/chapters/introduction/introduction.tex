@@ -1,7 +1,8 @@
 \chapter{Introduction}
-\(\lambda\)-calculi express abstract computation, forming a large part of computability theory, the theoretical basis of functional programming, and research into programming languages and type systems.
+Lambda calculi express abstract computation, forming a large part of computability theory~\cite{lambda-computability}, the theoretical basis of functional programming, and research~\cite{lambda-programming} into programming languages and type systems.
 My dissertation describes the implementation of a series of machine-checked proofs in the proof assistant Isabelle concerning a typed \(\lambda\)-calculus encoded in the proof assistant, culminating in several correctness properties of the implementation.
-On the practical side of the project, I also extract a type inference algorithm for the calculus from the formal implementation, and supply a checked proof of correctness of the algorithm.
+On the practical side of the project, I also produce executable Haskell code that implements a type inference algorithm for the calculus.
+I extract this automatically from the formal implementation, and supply a checked proof of correctness of the algorithm.
 
 I draw on a wide variety of areas in theoretical Computer Science for my project: \(\lambda\)-calculi, types, formal logic, and verified reasoning.
 By implementing and verifying a \emph{typed} calculus, the project required some theory about types in addition to the \(\lambda\)-calculus, including proving properties such as the preservation of types under \(\beta\)-reduction.
@@ -25,14 +26,13 @@ Extracted code for this inference algorithm.
 Some safety properties of the calculus: progress, type preservation, and safety.
 \end{itemize}
 
-For extension work, I also implemented unit and pair terms and associated types, and showed that the terms of the calculus are confluent under \(\beta\)-reduction.
+For extension work, I also implemented unit and pair terms and associated types, and showed that the \(\beta\)-reduction relation is confluent using a proof technique due to Tait, Martin-L\"of, and Takahashi.
 
 \section{Previous Work}
 The theory behind typed \(\lambda\)-calculi is well-known: Church's \(\lambda\)-calculus has a distinguished history~\cite{lambda-history}, as does type theory since Russell's original \emph{theory of types}~\cite{russell}.
 My work uses particularly well-established knowledge, so there was little risk of attempting a mathematically impossible project.
-Formal verification also has a great deal of previous work that can be re-used: the majority of proof checkers are now proof \emph{assistants}, including automation tools, tactics and theorem provers (at least for small deductive steps) and large existing libraries of formalised mathematics.
+Formal verification also has a great deal of previous work that can be re-used: proof \emph{assistants} now include automation tools, tactics and theorem provers (at least for small deductive steps), and large existing libraries of formalised mathematics.
 As an example, the \textsc{Mizar} system~\cite{mizar} contains in its distribution a library of over 50,000 proofs.
-Isabelle is no exception to this.
 
 There is also more specific work that pertains directly to my project.
 Several implementations of typed \(\lambda\)-calculus have been implemented and verified (see for instance the \textsc{PoplMark} challenge~\cite{poplmark}, a set of challenges designed to measure progress in mechanizing programming language metatheory) using an assortment of techniques, tools, and proofs, all of which can help with my project.

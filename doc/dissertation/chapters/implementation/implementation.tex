@@ -1,8 +1,17 @@
 \chapter{Implementation}
+In this chapter I discuss the implementation details of the project.
 The work is split into four modules, or what Isabelle calls \emph{theories}.
-The first (\emph{Fresh}) deals with fresh names and implementations of freshness, the second (\emph{Permutation}) with a theory of permutations, and the third and fourth (\emph{PreSimplyTyped} and \emph{SimplyTyped}) with \(\lambda\)-terms, before and after the quotient respectively.
-All theories develop upon basic theorems shown in Isabelle's standard library, called \emph{Main}.
+The first (\emph{Fresh}, \S\ref{sec:freshness}) deals with fresh names and implementations of freshness, the second (\emph{Permutation}, \S\ref{sec:permutations}) with a theory of permutations, and the third and fourth (\emph{PreSimplyTyped}, \S\ref{sec:raw-terms} and \emph{SimplyTyped}, \S\ref{sec:quotient-terms}) with \(\lambda\)-terms, before and after the quotient respectively.
+All theories develop upon basic theorems contained in Isabelle's standard library, called \emph{Main}.
 A dependency graph is shown in Figure \ref{fig:dependencies}.
+Theorems argued here which have a corresponding theorem in the formalisation are marked with the identifier used in the Isabelle source, like this:
+\setcounter{theorem}{-1}
+\begin{theorem}[\ident{example-in-isabelle}]
+The statement of the theorem.
+\end{theorem}
+\begin{proof}
+A proof of the theorem.
+\end{proof}
 
 \begin{figure}
 \centering
@@ -12,6 +21,7 @@ A dependency graph is shown in Figure \ref{fig:dependencies}.
 \end{figure}
 
 \section{Freshness}
+\label{sec:freshness}
 I first develop a theory of fresh name generation, used later in arguments about fresh names in a given \(\lambda\)-term.
 The implementation should take a set (of some type, since we wish to be parametric) and produce an element not in that set.
 In order to specify an interface over an arbitrary type, I used Isabelle's typeclass mechanism~\cite{isabelle-typeclasses} to make a class (i.e. an interface) for types that can produce a fresh element from a set:
@@ -49,6 +59,7 @@ Natural numbers provide a straightforward interface to define an \emph{executabl
 \ \ \ \ {\isacharbrackleft}code{\isacharbrackright}{\isacharcolon}\ {\isachardoublequoteopen}fresh{\isacharunderscore}in{\isacharunderscore}nat\ S\ {\isasymequiv}\ {\isacharparenleft}if\ Set{\isachardot}is{\isacharunderscore}empty\ S\ then\ {\isadigit{0}}\ else\ Max\ S\ {\isacharplus}\ {\isadigit{1}}{\isacharparenright}{\isachardoublequoteclose}\isanewline
 \end{implementation}
 
+Note the \texttt{code} tag --- this indicates code to be extracted later.
 The above also generates a proof obligation to show that this satisfies the freshness specification.
 
 \begin{lemma}
@@ -65,13 +76,14 @@ Hence \(n'\) must not be in \(S\).
 \end{proof}
 
 \section{Swappings and Permutations}
-Swappings are used in the nominal definition of \(\alpha\)-equivalence, seen later.
-While using this definition, applications of swappings can build up, and need reducing; for example, applying any given swapping twice is the same operation as not applying any swappings at all --- that is, application of swappings is an \emph{involutive} operation.
-While these rules can be argued only in the context of sequences of swapping application, it is more convenient to allow for composition of swappings into \emph{permutations}.
-Simple equality here will not suffice either: permutations are equal iff they have the same effect on all inputs.
+\label{sec:permutations}
+Finitely-supported permutations are used in the nominal definition of \(\alpha\)-equivalence, seen in \S\ref{sec:nominal-intro}.
+I define permutations in terms of sequences of swappings, permuting a single variable for another.
+While using this definition, complex permutations can accumulate and need reducing by means of simplification rules, which determine when permutations are equivalent.
+Simple equality here will not suffice: permutations are ``equal'' iff they have the same effect on all inputs.
 This is another use case for the quotient type mechanism: by identifying permutations that are extensionally, but not intensionally, equal, a new type can be made that does not make this distinction.
-
 Therefore, I proceed by first defining swappings, then \emph{pre-permutations}, then later produce \emph{permutations}.
+Here, I use a type synonym for the definition of the permutation type.
 
 \begin{implementation}
 \isacommand{type{\isacharunderscore}synonym}\isamarkupfalse%
@@ -80,22 +92,7 @@ Therefore, I proceed by first defining swappings, then \emph{pre-permutations}, 
 \ {\isacharprime}a\ preprm\ =\ {\isachardoublequoteopen}{\isacharprime}a\ swp\ list{\isachardoublequoteclose}\isanewline
 \end{implementation}
 
-The identity permutation \(\varepsilon\) is then defined to be the empty list: as mentioned, this is not the only possible implementation (consider \([\wrap{a, a}]\) --- swapping any name for itself in an object always produces the same object), but at least one is required for later use as the quotient identity.
-
-\begin{implementation}
-\isacommand{definition}\isamarkupfalse%
-\ preprm{\isacharunderscore}id\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ preprm{\isachardoublequoteclose}\ \isakeyword{where}\ {\isachardoublequoteopen}preprm{\isacharunderscore}id\ =\ {\isacharbrackleft}{\isacharbrackright}{\isachardoublequoteclose}\isanewline
-\end{implementation}
-
-Converting a swapping into a permutation can be done by placing the swapping inside a list of its own --- then, it still has the effect of the original swapping, but is a permutation.
-
-\begin{implementation}
-\isacommand{definition}\isamarkupfalse%
-\ preprm{\isacharunderscore}unit\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ {\isasymRightarrow}\ {\isacharprime}a\ {\isasymRightarrow}\ {\isacharprime}a\ preprm{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
-\ \ {\isachardoublequoteopen}preprm{\isacharunderscore}unit\ a\ b\ {\isasymequiv}\ {\isacharbrackleft}{\isacharparenleft}a,\ b{\isacharparenright}{\isacharbrackright}{\isachardoublequoteclose}\isanewline
-\end{implementation}
-
-\begin{definition}
+\begin{definition}[\ident{preprm-apply}]
 Application of pre-permutations to variables, \(\pi \dollar x\), is defined as follows.
 \begin{enumerate}
 \item
@@ -118,7 +115,7 @@ Applying the sequence \(\wrap{a, b} :: \pi'\) to \(x\) is the same as applying \
 
 From this definition, we can show that the defined identity element is in fact identity.
 
-\begin{lemma}
+\begin{lemma}[\ident{preprm-apply-id}]
 \label{lemma:identity-application}
 \(\varepsilon\) has the property \(\varepsilon \dollar x = x\), for any \(x\).
 \end{lemma}
@@ -128,7 +125,7 @@ By definition of application.
 
 In later proofs about the \(\alpha\)-equivalence of binders, it's useful to be able to argue both that \(x = y \Longrightarrow \pi \dollar x = \pi \dollar y\) (which follows from identity), its inverse, \(x \neq y \Longrightarrow \pi \dollar x \neq \pi \dollar y\), and the converse, \(\pi \dollar x = \pi \dollar y \Longrightarrow x = y\) (i.e. that permutation application is injective).
 
-\begin{lemma}
+\begin{lemma}[\ident{preprm-apply-unequal}]
 \label{lemma:apply-unequal}
 If \(x \neq y\), then \(\pi \dollar x \neq \pi \dollar y\)
 \end{lemma}
@@ -139,32 +136,23 @@ For the inductive step, suppose \(x' \neq y'\).
 Then \([\wrap{a, b}] \dollar x' \neq [\wrap{a, b}] \dollar y'\), by cases on \(x'\) and \(y'\).
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{preprm-apply-injective}]
 Application of permutations \(\pi\) is injective.
 \end{lemma}
 \begin{proof}
 By induction on \(\pi\).
 The base case follows by definition.
-Using the inductive hypothesis, have that \([(a, b)] \dollar \wrap{\pi' \dollar x} = [(a, b)] \dollar \wrap{\pi' \dollar y}\).
+Using the inductive hypothesis, obtain \([(a, b)] \dollar \wrap{\pi' \dollar x} = [(a, b)] \dollar \wrap{\pi' \dollar y}\).
 Then use the contrapositive of Lemma \ref{lemma:apply-unequal} to show that \(x = y\) using the inductive hypothesis.
 \end{proof}
 
 There are a couple of other useful operations on pre-permutations that are defined on the pre-permutations, then lifted over the equivalence relation.
 
-\begin{definition}
+\begin{definition}[\ident{preprm-compose}]
 The composite pre-permutation \(\pi \diamond \sigma\) is the sequence \(\sigma\) appended to the sequence \(\pi\) to create a new sequence.
 \end{definition}
-Therefore, composition can be implemented as a list-append operation.
 
-\begin{implementation}
-\isacommand{definition}\isamarkupfalse%
-\ preprm{\isacharunderscore}compose\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ preprm\ {\isasymRightarrow}\ {\isacharprime}a\ preprm\ {\isasymRightarrow}\ {\isacharprime}a\ preprm{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
-\ \ {\isachardoublequoteopen}preprm{\isacharunderscore}compose\ f\ g\ {\isasymequiv}\ f\ {\isacharat}\ g{\isachardoublequoteclose}\isanewline
-\end{implementation}
-
-Permutation composition must behave as if it were function composition: otherwise, it's not a very good definition of ``composition''.
-
-\begin{lemma}
+\begin{lemma}[\ident{preprm-apply-composition}]
 \label{lemma:apply-composition}
 Application of the composite permutation \(\pi \diamond \sigma\) is the same as applying first \(\sigma\), then \(\pi\).
 \end{lemma}
@@ -175,7 +163,7 @@ Both cases then follow by definition.
 
 A common simplifying argument is to move swappings around until two are adjacent, since clearly swapping two things twice is the same as not swapping them at all.
 
-\begin{lemma}
+\begin{lemma}[\ident{preprm-unit-involution}]
 \label{lemma:unit-involution}
 Composition of the unit permutation \([\wrap{a, b}]\) with itself is equivalent to the identity element.
 \end{lemma}
@@ -185,7 +173,7 @@ If it is \(a\) or \(b\), then swapping \(a\) to \(b\), then \(b\) to \(a\) (or v
 If it is not, then the swapping has no effect, so two iterations of swapping still has no effect.
 \end{proof}
 
-\begin{definition}
+\begin{definition}[\ident{preprm-inv}]
 The inverse of a permutation \(\pi\), \(\pi^{-1}\), is defined to be the reverse of the sequence of swappings \(\pi\) consists of.
 \end{definition}
 
@@ -196,7 +184,7 @@ The inverse of a permutation \(\pi\), \(\pi^{-1}\), is defined to be the reverse
 \end{implementation}
 
 It can be shown that this is in fact the inverse of a permutation as follows.
-\begin{lemma}
+\begin{lemma}[\ident{preprm-inv-involution}]
 \label{lemma:inverse-involution}
 For any \(\pi\) and \(x\), \(\pi^{-1} \dollar \pi \dollar x = x\), and vice-versa, \(\pi \dollar \pi^{-1} \dollar x = x\).
 \end{lemma}
@@ -248,17 +236,17 @@ Therefore it is an equivalence relation.
 
 Several properties of composition and inverse under this equivalence behave as they would under equality as well.
 
-\begin{lemma}
+\begin{lemma}[\ident{preprm-ext-compose-left}]
 If \(\sigma \equiv_p \tau\), then \(\pi \diamond \sigma \equiv_p \pi \diamond \tau\).
 \end{lemma}
-\begin{lemma}
+\begin{lemma}[\ident{preprm-ext-compose-right}]
 If \(\sigma \equiv_p \tau\), then \(\sigma \diamond \pi \equiv_p \tau \diamond \pi\).
 \end{lemma}
 \begin{proof}
 Both of these follow from Lemma \ref{lemma:apply-composition}.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{preprm-ext-uncompose}]
 \label{lemma:uncompose}
 If \(\pi \equiv_p \sigma\) and \(\pi \diamond \tau \equiv_p \sigma \diamond \rho\),
 then \(\tau \equiv_p \rho\).
@@ -267,7 +255,7 @@ then \(\tau \equiv_p \rho\).
 By assumption obtain \(\pi \diamond \tau \equiv_p \pi \diamond \rho\), then using the injectivity of permutation application, arrive at the result.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{preprm-inv-ext}]
 If \(\pi \equiv_p \sigma\), then \(\pi^{-1} \equiv_p \sigma^{-1}\).
 \end{lemma}
 \begin{proof}
@@ -278,7 +266,7 @@ Finally, derive the result by applying Lemma \ref{lemma:uncompose} and the assum
 \end{proof}
 
 It is also algebraically interesting to note that composition with an inverse also produces identity.
-\begin{lemma}
+\begin{lemma}[\ident{preprm-inv-compose}]
 \label{lemma:group-inverse}
 For any \(\pi\), \(\pi^{-1} \diamond \pi \equiv_p \varepsilon\).
 \end{lemma}
@@ -338,22 +326,24 @@ and a lemma might be transferred from acting on the equivalence class to a concr
 \end{implementation}
 
 It's instructive to note at this point that the set of permutations over a base set \(S\), \(P_S\) form a group \(\wrap{P_S, \circ}\), with inverses being provided by the inverse operation, and \(\varepsilon\) as the identity element.
-
+This is shown in the Isabelle source.
 Some final operations did not need to be defined on pre-permutations, and could be defined directly on the quotiented type.
 
-\begin{definition}
+\begin{definition}[\ident{prm-set}]
 The image of a set \(S\) under a permutation \(\pi\), \(\pi \image S\), is the image of applying \(\pi\) on that set, \(\{\pi \dollar x\ |\ x \in S\}\).
 \end{definition}
 
+This is the \emph{pointwise action} of \(\pi\) on \(S\), which allows for a permutation action on sets of names, and hence for a notion of equivariance on the free variables of a term.
+
 \begin{implementation}
 \isacommand{definition}\isamarkupfalse%
-\ prm{\isacharunderscore}set\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ prm\ {\isasymRightarrow}\ {\isacharprime}a\ set\ {\isasymRightarrow}\ {\isacharprime}a\ set{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{where}\isanewline \ \ {\isachardoublequoteopen}prm{\isacharunderscore}set\ {\isasympi}\ S\ {\isasymequiv}\ image\ {\isacharparenleft}prm{\isacharunderscore}apply\ {\isasympi}{\isacharparenright}\ S{\isachardoublequoteclose}\isanewline
+\ prm{\isacharunderscore}set\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ prm\ {\isasymRightarrow}\ {\isacharprime}a\ set\ {\isasymRightarrow}\ {\isacharprime}a\ set{\isachardoublequoteclose}\ \isakeyword{where}\isanewline \ \ {\isachardoublequoteopen}prm{\isacharunderscore}set\ {\isasympi}\ S\ {\isasymequiv}\ image\ {\isacharparenleft}prm{\isacharunderscore}apply\ {\isasympi}{\isacharparenright}\ S{\isachardoublequoteclose}\isanewline
 \end{implementation}
 
 \section{Raw \(\lambda\)-terms}
-Simple types and raw \(\lambda\)-terms are defined inductively with an Isabelle datatype, as described earlier.
-I use natural numbers for a concrete variable type as there is a freshness implementation for them already, but any other variable that satisfies the freshness constraints can be used.
-For instance, strings of characters are a possible variable type, but the set of booleans is not.
+\label{sec:raw-terms}
+Simple types \(\tau, \sigma, \ldots\) and \(\lambda\)-terms (uppercase variables) are defined inductively with an Isabelle datatype, as described in \S\ref{sec:lambda-intro}.
+I use natural numbers for a concrete variable type as there is a freshness implementation, but any other variable that satisfies the freshness constraints can be used: strings of characters are possible, but the set of booleans is not.
 
 \begin{implementation}
 \isacommand{type{\isacharunderscore}synonym}\isamarkupfalse%
@@ -371,7 +361,7 @@ For instance, strings of characters are a possible variable type, but the set of
 {\isacharbar}\ PFn\ {\isacharprime}a\ type\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\isanewline
 \end{implementation}
 
-Defining the effect of permutations on pre-terms, \(\pi \bullet X\), is done recursively, since the applying the permutation commutes with the structure of the term until the base case (i.e. variables or the name in a binder).
+Defining the action of permutations on pre-terms, \(\pi \bullet X\), is done recursively, since the applying the permutation commutes with the structure of the term until the base case (i.e. variables or the name in a binder).
 
 \begin{implementation}
 \isacommand{fun}\isamarkupfalse%
@@ -416,16 +406,17 @@ Free variables of a term can also be defined recursively.
 \end{implementation}
 
 In later lemmas, a given set of names frequently has to be shown to be finite, so that a fresh name can be generated with respect to them.
-To aid this, show that the free variables of a term are always finite.
-\begin{lemma}
+To aid this, show that the free variables of a pre-term are always finite.
+\begin{lemma}[\texttt{ptrm-fvs-finite}]
 For any \(X\), the free variables of \(X\) form a finite set.
 \end{lemma}
 \begin{proof}
 By induction on \(X\).
 \end{proof}
 
-Also, the free-variables operation can be shown to be equivariant, the first case of this property in the project.
-\begin{lemma}
+This operation can also be shown to be equivariant using the definition of pointwise action, a property used extensively later when working with the \(\alpha\)-equivalence of \(\lambda\)-terms.
+
+\begin{lemma}[\ident{ptrm-prm-fvs}]
 For any \(X\) and \(\pi\), the free variables of \(\pi \bullet X\) are the image of \(\pi\) in the free variables of \(X\).
 \end{lemma}
 \begin{proof}
@@ -447,7 +438,7 @@ Then the lemma holds for \(\wrap{A\ B}\):
 \end{align*}
 \item
 Assume that \(\fvs\wrap{\pi \bullet A} = \pi \image \fvs(A)\).
-Then finish the lemma similarly:
+Then finish the lemma as in the application case:
 \begin{align*}
 \fvs\wrap{\pi \bullet \lambda \wrap{x:T}.A} 
 &= \fvs\wrap{\lambda \wrap{\pi \dollar x : T}. \wrap{\pi \bullet A}}\\
@@ -459,18 +450,18 @@ Then finish the lemma similarly:
 \end{enumerate}
 \end{proof}
 
-Isabelle also provides a function called \texttt{size} with every datatype to determine the number of nodes contained within a given instance of the datatype --- this corresponds to the definition of term size \(|M|\) described earlier.
-To use the size of a term in later arguments (e.g. for induction on the size of said term), it is useful to show that \(|\pi \bullet M| = |M|\), i.e. that permutation does not change the size of a term.
+Isabelle also generates a function called \texttt{size} with every datatype to determine the number of nodes contained within a given instance of the datatype --- this corresponds to the definition of term size \(|M|\) described in \S\ref{sec:benchmarking}.
+To use the size of a term (e.g. for induction on the size of said term), it is useful to show that size is equivariant, that \(|\pi \bullet M| = \pi \cdot |M| = |M|\).
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-size-prm}]
 The size of a pre-term \(X\) is the same as the size of \(X\) under a permutation, \(\pi \bullet X\).
 \end{lemma}
 \begin{proof}
-By induction on \(X\), then by definition of permutation application.
+By induction on the structure of \(X\), then by definition of permutation application.
 \end{proof}
 
 \subsection{\(\alpha\)-equivalence}
-Isabelle provides built-in support for inductive definitions, so reproducing the nominal definition of \(\alpha\)-equivalence introduced in the Preparation chapter is straightforward.
+Isabelle provides built-in support for inductive definitions, so reproducing the nominal definition of \(\alpha\)-equivalence introduced in \S\ref{chap:preparation} is straightforward.
 I used a slightly different formulation in which there are two cases for functions: one where the swapping variables are the same, and one when they are not.
 This is equivalent, but makes for a shorter proof script.
 
@@ -516,7 +507,7 @@ For instance \emph{varE} is effectively
 
 A good test of the definition of this relation is to show that free variables and permutation application are preserved under it, a fundamental property of \(\alpha\)-equivalence.
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-alpha-equiv-fvs}]
 Assume \(X \sim Y\).
 Then \(\fvs(X) = \fvs(Y)\).
 \end{lemma}
@@ -564,7 +555,7 @@ Now
 \end{align*}
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-alpha-equiv-prm}]
 \label{lemma:prm-equivalent}
 Assume \(X \sim Y\).
 Then \(\pi \bullet X \sim \pi \bullet Y\).
@@ -589,7 +580,7 @@ Finally, see that both sides of the equivalence can be simplified to produce the
 Now I show that \(\sim\) is an equivalence relation.
 Some simple but specific results are needed first, which are presented informally:
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-swp-transfer}]
 \label{lemma:transfer-swapping}
 The statement \([a \swap b] \bullet X \sim Y\) is equivalent to the statement \(X \sim [a \swap b] \bullet Y\).
 \end{lemma}
@@ -597,7 +588,7 @@ The statement \([a \swap b] \bullet X \sim Y\) is equivalent to the statement \(
 This can be shown in both directions by permuting both sides by \([a \swap b]\) again using Lemma \ref{lemma:prm-equivalent}, then using the fact that \([a \swap b] \diamond [a \swap b] = \varepsilon\).
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-alpha-equiv-fvs-transfer}]
 \label{lemma:transfer-freshness}
 If \(a \notin \fvs(B)\), and \(A \sim [a \swap b] \bullet B\), then \(b \notin \fvs(A)\).
 \end{lemma}
@@ -607,14 +598,14 @@ By a similar argument.
 
 These are now used to argue the conditions of being an equivalence relation, namely reflexivity, symmetry, and transitivity.
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-alpha-equiv-reflexive}]
 \(\sim\) is reflexive: that is, for all terms \(X\), \(X \sim X\).
 \end{lemma}
 \begin{proof}
-By induction on \(X\).
+By induction on the structure of \(X\).
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-alpha-equiv-symmetric}]
 \(\sim\) is symmetric, so for all terms \(X\), \(Y\), \(X \sim Y \Longrightarrow Y \sim X\).
 \end{lemma}
 \begin{proof}
@@ -625,7 +616,7 @@ From these and Lemmas \ref{lemma:transfer-swapping} and \ref{lemma:transfer-fres
 Then note that these are the conditions required to show \(\lambda (b:T).B \sim \lambda (a:T).A\), which is the required result.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-alpha-equiv-transitive}]
 \(\sim\) is transitive.
 If \(X \sim Y\) and \(Y \sim Z\), then \(X \sim Z\).
 \end{lemma}
@@ -648,7 +639,6 @@ Since both derivations were by \emph{fn2}, \(A \sim [x \swap y] \bullet [y \swap
 Also, \(x \notin \fvs(C)\) holds by noting that \(x \notin \fvs([y \swap z] \bullet C)\), then considering if \(z\) is in the free variables of \(C\).
 If it is, then \(x \notin \fvs(C)\), since \(x \neq y \neq z\) and hence swapping \(z\) for \(y\) has no effect on whether \(x\) is in the free variables of the term or not.
 If it is not, then the swapping has no effect, so \(x \notin \fvs(C)\) trivially.
-
 Concluding, \(x \neq z\), \(A \sim [x \swap z] \bullet C\), and \(x \notin \fvs(C)\), so it follows that \(\lambda (x:T).A \sim \lambda (z:T).C\).
 \end{proof}
 
@@ -660,9 +650,9 @@ Since \(\sim\) is reflexive, symmetric, and transitive, it is an equivalence rel
 \end{proof}
 
 \subsection{Type Inference Algorithm}
+\label{sec:type-inference}
 The last task that needs to be done on the pre-terms is to implement a type inference algorithm on the concrete syntax, which can then be lifted to terms.
-
-The algorithm is implemented as follows, which typing contexts modelled as a partial function from names to terms.
+The algorithm is implemented as follows, with typing contexts modelled as a partial (i.e. total, but returning an option) function from names to types.
 
 \begin{implementation}
 \isacommand{type{\isacharunderscore}synonym}\isamarkupfalse%
@@ -685,7 +675,7 @@ The algorithm is implemented as follows, which typing contexts modelled as a par
 Before this definition can be lifted across equivalence classes, it is required to show that it is invariant under \(\alpha\)-equivalence.
 This can be done with the help of a lemma about swapping names in a typing context.
 
-\begin{lemma}
+\begin{lemma}[\ident{ptrm-infer-type-swp}]
 \label{lemma:infer-typing-swap}
 Assume two names \(a\) and \(b\) are distinct, and \(b \notin \fvs(X)\).
 Then
@@ -697,7 +687,7 @@ Then
 By induction on the structure of \(X\).
 \end{proof}
 
-\begin{theorem}
+\begin{theorem}[\ident{ptrm-infer-type-alpha-equiv}]
 The inference algorithm is invariant under equivalence.
 If \(X \sim Y\), then for any context \(\Gamma\),
 \[
@@ -711,6 +701,7 @@ For \emph{fn2}, use the definition of the type inference algorithm and Lemma \re
 \end{proof}
 
 \section{\(\lambda\)-terms with \(\alpha\)-equivalence}
+\label{sec:quotient-terms}
 As before with permutations, pre-terms can now be lifted to terms using the quotient-type machinery.
 
 \begin{implementation}
@@ -765,10 +756,9 @@ First, every lifted datatype constructor has to be shown to be not equal to ever
 Then, the ``obvious'' conclusions from equality don't necessarily hold either, and must be shown manually.
 For example, suppose \(\wrap{A\ B} = \wrap{C\ D}\).
 You can conclude that \(A = C\) and \(B = D\) from this, but with the quotient type Isabelle cannot infer this and it has to be shown manually.
-
 Isabelle does not generate an induction principle for the new terms automatically, but it is possible to produce one by deferring to the concrete-syntax induction principle.
 
-\begin{lemma}
+\begin{lemma}[\ident{trm-induct}]
 Suppose \(P\) is a unary predicate on terms, suppose also that for all variables \(x\), \(P(x)\) holds, that if \(P(A)\) and \(P(B)\) hold, then \(P\wrap{A\ B}\) also holds, and finally that if \(P(A)\) holds, then \(P\wrap{\lambda (x:T). A}\) also holds.
 Then for any term \(M\), \(P(M)\).
 \end{lemma}
@@ -779,9 +769,10 @@ The result then follows from lifting this result back up to the level of terms.
 
 Similar principles can also be produced for proof by cases and proof by induction on the size of a term.
 Being able to prove and use different induction principles also allows for proof by \emph{strong} induction.
-This is a useful principle to have, as assuming that \(x\) is fresh in a set makes many proofs simpler and shorter.
+This is a useful principle to have, as assuming that \(x\) is fresh makes many proofs simpler and shorter --- a formalised version of Barendregt's convention.
 
-\begin{lemma}
+\begin{lemma}[\ident{trm-strong-induct}]
+\label{lemma:strong-induction}
 Suppose now that \(P\) is a \emph{binary} predicate on pairs consisting of a set of names and a term.
 The term is the object of induction, and \(S\) is a set of names to avoid when discussing binders.
 Suppose that
@@ -801,7 +792,6 @@ Now for any term \(M\), \(P\wrap{S, M}\).
 First, show a more general property: that for any permutation \(\pi\), \(P\wrap{S, \pi \cdot M}\).
 This is argued by induction on \(M\), using the simple induction rule proved earlier.
 The variable and application cases are by analogy with the simple induction, but the function binder needs special attention.
-
 In the binding case, assume that \(P\wrap{S, \pi \cdot A}\) for any \(\pi\), and show that \(P\wrap{S, \pi \cdot \lambda (x:T).A}\).
 To prove this, produce a new variable \(y\) (using the freshness implementation) that is fresh with respect to the union of \(S\), the free variables of \(\pi \cdot A\), and \(\pi \dollar z\).
 Now for any \(B\), if \(P\wrap{S, B}\), then \(P\wrap{S, \lambda (y:T).B}\), using the assumptions --- in particular, \(P\wrap{S, \lambda (y:T). \wrap{[y \swap \pi \dollar x] \diamond \pi} \cdot A}\).
@@ -813,17 +803,55 @@ However, by using the \emph{fn2} rule, it can be shown that
 &= \pi \cdot \lambda (x:T). A
 \end{align*}
 And so \(P\wrap{S, \pi \cdot \lambda (x:T).A}\) holds for any \(\pi\).
-
 Now that the stronger result is established, the original result can be shown by setting \(\pi = \varepsilon\).
 \end{proof}
 
 Further induction principles can be produced by combining the strong induction principle with proof by cases (``strong cases'') and proof by induction on the size of a term (``strong depth induction'').
 
+\begin{lemma}[\ident{trm-strong-cases}]
+\label{lemma:strong-cases}
+Suppose \(P\) and \(S\) are defined as in Lemma \ref{lemma:strong-induction}, but now consider a term \(M\) and suppose
+\begin{enumerate}
+\item
+\(S\) is a finite set of names.
+\item
+If \(M = x\), or \(M = \wrap{A\ B}\), then \(P\wrap{S, M}\).
+\item
+If \(M = \lambda \wrap{x:T}. A\) and \(x \notin S\), then \(P\wrap{S, M}\).
+\end{enumerate}
+Then for any \(S\) and \(M\), \(P\wrap{S, M}\).
+\end{lemma}
+\begin{proof}
+Directly from the strong induction principle.
+\end{proof}
+
+\begin{lemma}[\ident{trm-strong-depth-induct}]
+Suppose \(P\) and \(S\) are defined as above.
+Now, assume
+\begin{enumerate}
+\item
+\(S\) is a finite set of names.
+\item
+\(P\wrap{S, x}\) holds for all \(x\).
+\item
+If \(P\wrap{S, K}\) holds for all \(K\) smaller than \(\wrap{A\ B}\), \(P\wrap{S, \wrap{A\ B}}\).
+\item
+If \(P\wrap{S, K}\) holds for all \(K\) smaller than \(\lambda \wrap{x:T}. A\), and \(x \notin S\), \(P\wrap{S, \lambda \wrap{x:T}.A}\).
+\end{enumerate}
+Then for any \(S\) and \(M\), \(P\wrap{S, M}\).
+\end{lemma}
+\begin{proof}
+By induction on the size of \(M\).
+Assume the inductive hypothesis, then note that the pre-conditions for Lemma \ref{lemma:strong-cases} can be derived from the assumptions and the hypothesis.
+The result then follows by using Lemma \ref{lemma:strong-cases}.
+\end{proof}
+
 \subsection{Typing Judgements}
+\label{sec:typing-judgements}
 An explicit inductively-defined typing relation is used to ensure that the type inference algorithm is correct (or at least respects the typing judgements as written).
 Additionally, it is easier to argue that inductive definitions respect certain properties (e.g. the subject reduction property), then to show that the algorithm is sound and complete with respect to the judgements, than it is to argue directly about the algorithm.
 
-The judgements presented earlier are encoded in Isabelle as follows:
+The judgements presented in \S\ref{sec:type-intro} are encoded in Isabelle as follows:
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
@@ -846,7 +874,7 @@ For example,
 provides a mechanism for reasoning about the typing judgement of an application in reverse.
 With these eliminators, the first of several properties about the type system can be shown: weakening.
 
-\begin{theorem}
+\begin{theorem}[\ident{typing-weaken}]
 Assume that \(\Gamma \vdash M : \tau\), and pick \(y\) such that \(y \notin \fvs(M)\).
 Then
 \[\Gamma\{y \mapsto \sigma\} \vdash M : \tau\]
@@ -861,6 +889,7 @@ For the second, \(y \notin \fvs(A)\) can be combined with the induction hypothes
 \end{proof}
 
 \subsection{Substitution and \(\beta\)-Reduction}
+\label{sec:beta-reduction}
 Most of the properties I show about the type system of the calculus require an implementation of \(\beta\)-reduction, which itself requires substitution to be defined first.
 I define a substitution relation inductively, then show that the relation is a function, so that \(\beta\)-reduction can be defined in terms of it.
 While it is possible to define substitution as a function directly, it has to be done on pre-terms, then lifted to the quotiented terms, as Isabelle's function package does not support defining functions on equivalence classes.
@@ -879,7 +908,7 @@ While it is possible to define substitution as a function directly, it has to be
 The usual eliminators follow.
 For a relation \(R\) to a be a function, it has to be both \emph{total} --- that is, for every \(a\), there is a \(b\), such that \(\wrap{a, b} \in R\) --- and \emph{single-valued}, so there is only one \(b\) for any \(a\).
 
-\begin{lemma}
+\begin{lemma}[\ident{substitutes-total}]
 \label{lemma:substitution-total}
 The substitution relation is total: for any term \(A\), there is an \(A'\) which is the substitution of \(x\) for \(M\) in \(A\).
 \end{lemma}
@@ -891,7 +920,7 @@ Finally, for functions \(\lambda (y:T). B\), note that \(y \neq x\) and \(y \not
 Hence the \emph{fn} rule applies.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{substitutes-unique}]
 \label{lemma:substitution-unique}
 The substitution relation is unique: if \(B\) and \(C\) are both substitutions of \(x\) for \(M\) in \(A\), then \(B = C\).
 \end{lemma}
@@ -900,7 +929,7 @@ Again by strong induction on \(A\), avoiding \(x\) and \(\fvs(M)\).
 Each case can be proved by using the appropriate eliminator.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{substitutes-function}]
 Substitution is a function.
 \end{lemma}
 \begin{proof}
@@ -908,7 +937,7 @@ Using Lemmas \ref{lemma:substitution-unique} and \ref{lemma:substitution-total},
 \end{proof}
 
 It is possible to define a function within Isabelle that finds the unique term that a substitution results in.
-This is done using the definition description operator, which Isabelle calls ``THE''.
+This is done using the definition description operator \(\iota\), which Isabelle calls ``THE'' --- this is like the indefinite description operator, but returns the \emph{only} such item --- \(\iota x. P(x)\) is the empty set if \(P\) represents ``\(x\) is empty'', but undefined if \(P\) is ``\(x\) is non-empty''.
 Then, a series of simplification lemmas can be used to make this definition useful, which all use this result to argue that the substitution has exactly one result.
 While substitution is clearly an executable algorithm, this definition is not exexecutable by Isabelle as there is no direct definition it can follow for it.
 It may be possible to use Isabelle's code transformation with added user-defined properties to allow an extracted implementation (discussed later), but this is left as an extension.
@@ -936,8 +965,9 @@ For an example of a simplification lemma for this function, consider the result 
 \end{implementation}
 
 At this point, I can showcase the strength of the strong induction principle (and hence the whole nominal approach) by showing \emph{Barendregt's substitution lemma}~\cite{lambda-overview}, which produces a method of re-writing substitutions in a different order.
+It is also used to show the confluence property.
 
-\begin{lemma}
+\begin{lemma}[\ident{barendregt}]
 Assume that \(y \neq z\), and that \(y \notin \fvs(L)\).
 Then the following property of substitutions holds:
 \[
@@ -963,10 +993,10 @@ It can be seen here that by avoiding the names, and hence the problem, the proof
 An important step in showing the subject reduction principle is a result about the effect of substitution on typing, which is used in contracting a \(\beta\)-redex.
 This particular lemma also exercises the strong depth-induction principle, combining the ability to avoid name conflicts in the proof, and also to assume that the result holds for any term smaller than the one currently under consideration.
 
-\begin{lemma}
+\begin{lemma}[\ident{typing-subst}]
 \label{lemma:typing-subst}
-Assume that \(N\) has type \(\tau\) under a context \(\Gamma\), and that with \(\Gamma\) extended with \(z\) mapping to \(\tau\), \(M\) has type \(\sigma\).
-Then substituting \(z\) for \(N\) in \(M\) has type \(\sigma\) under \(\Gamma\).
+Assume that \(\Gamma \vdash N : \tau\), and also that \(\Gamma\{z \mapsto \tau\} \vdash M : \sigma\).
+Then \(\Gamma \vdash M[z := N] : \sigma\).
 \end{lemma}
 \begin{proof}
 By strong induction on the size of \(M\), avoiding \(z\) and the free variables of \(N\).
@@ -984,7 +1014,7 @@ Hence by the inductive hypotheses, \(\Gamma\{x \mapsto T\} \vdash A[z := N] : \s
 From here the result follows by using the simplification rules for substitution.
 \end{proof}
 
-Moving on, I used substitution to define single-step \(\beta\)-reduction with the usual inductive strategy.
+I then used substitution to define single-step \(\beta\)-reduction.
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
@@ -996,11 +1026,10 @@ Moving on, I used substitution to define single-step \(\beta\)-reduction with th
 \end{implementation}
 
 I can now show that types are preserved under single-step reduction, another step towards the subject reduction property.
-\begin{lemma}
+\begin{lemma}[\ident{preservation'}]
 \label{lemma:preservation'}
-Assume that \(M\) is judged to have type \(\tau\) under a context \(\Gamma\).
-\(M\) now reduces in a single step to \(M'\).
-\(M'\) still has type \(\tau\) under \(\Gamma\).
+Assume that \(\Gamma \vdash M : \tau\), and that \(M\) now reduces in a single step to \(M'\).
+\(M'\) retains its type, so \(\Gamma \vdash M' : \tau\).
 \end{lemma}
 \begin{proof}
 Proof proceeds by induction on the derivation of \(\Gamma \vdash M : \tau\).
@@ -1020,7 +1049,7 @@ The normal form predicate on terms may be defined inductively (again), which can
 {\isacharbar}\ fn{\isacharcolon}\ {\isachardoublequoteopen}NF\ A\ {\isasymLongrightarrow}\ NF\ {\isacharparenleft}Fn\ x\ T\ A{\isacharparenright}{\isachardoublequoteclose}\isanewline
 \end{implementation}
 
-\begin{theorem}
+\begin{theorem}[\ident{progress}]
 \label{theorem:progress}
 Assume that \(M\) is well-typed.
 Then \(M\) is either in normal form, or there is an \(M'\) such that \(M\) reduces to \(M'\) in one step.
@@ -1046,7 +1075,7 @@ Many-step reduction is simply the reflexive, transitive closure of single-step r
 
 Now I can prove the subject-reduction and safety properties for the type system, using Lemma \ref{lemma:preservation'} and the progress property shown in Theorem \ref{theorem:progress}.
 
-\begin{theorem}
+\begin{theorem}[\ident{preservation}]
 Assume that \(M\) has type \(\tau\) in a context \(\Gamma\), and that \(M\) reduces to \(M'\) in an arbitrary number of steps.
 Then \(M'\) also has this type under the same context.
 \end{theorem}
@@ -1055,7 +1084,7 @@ By induction on the many-step reduction of \(M\) to \(M'\).
 The reflexive case follows immediately, and the transitive case from the induction hypothesis and Lemma \ref{lemma:preservation'}.
 \end{proof}
 
-\begin{theorem}
+\begin{theorem}[\ident{safety}]
 Assume again that \(M\) is well-typed and \(M\) reduces in many steps to \(M'\).
 Then \(M\) is either in normal form, or there is an \(M''\) such that \(M'\) reduces to \(M''\) in exactly one step.
 \end{theorem}
@@ -1067,14 +1096,15 @@ Then apply the progress property.
 \end{proof}
 
 I am now finished with the properties I stated in my project proposal.
-The task that remains is to show that the inference algorithm is correct with respect to the typing judgements, and hence that the type inference algorithm also has these properties.
+What remains is to show that the inference algorithm is correct with respect to the typing judgements, and hence that the type inference algorithm also has these properties.
 
 \subsection{Inference Correctness}
+\label{sec:correctness}
 To show that the inference algorithm is correct, it has to be both \emph{sound} and \emph{complete}.
 The algorithm is sound if for any inference it makes, the same judgement can be made in the typing rules.
 Conversely, the algorithm is complete if for any judgement that can be made through the typing rules, it can also infer the same type.
 
-\begin{lemma}
+\begin{lemma}[\ident{infer-sound}]
 The algorithm is sound.
 Assume that \(\infertype\wrap{\Gamma, M} = \tau\).
 Then \(\Gamma \vdash M : \tau\).
@@ -1089,7 +1119,7 @@ Finally, for the binder case, the arrow type can only be inferred if the bound s
 Then by the induction hypothesis and the function rule in the typing judgements, the result follows.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{infer-complete}]
 The algorithm is complete.
 Assume that \(\Gamma \vdash M : \tau\).
 Then \(\infertype\wrap{\Gamma, M} = \tau\).
@@ -1099,7 +1129,7 @@ By induction on the typing derivation.
 All cases then follow by using the inductive hypothesis and the simplification rules for inference.
 \end{proof}
 
-\begin{theorem}
+\begin{theorem}[\ident{infer-valid}]
 The type inference algorithm is correct.
 \end{theorem}
 \begin{proof}
@@ -1108,6 +1138,7 @@ Since it is sound and complete, the algorithm is correct, at least by reference 
 
 \section{Extensions}
 \subsection{Unit and Pair Terms}
+\label{sec:pairs}
 One extension I added to the project was unit and pair terms, with suitable extensions to the type system.
 To do this, I extended the term datatype to include a unit value, a pair constructor, and projection functions for either side of a pair.
 
@@ -1141,12 +1172,13 @@ Perhaps the most interesting adaptation was the new typing rules, which notably 
 One major problem with the combination of this extension and the approach I took with the project as a whole was the number of lemmas that had to be written to determine that any datatype constructor was not equal to a distinct datatype constructor: for example, no pair is equal to a binder.
 
 \subsection{Confluence}
+\label{sec:confluence}
 One additional property of the calculus I showed was \emph{confluence}.
 The confluence property for a reduction system (such as this one) states that ``if \(A\) reduces in many steps to \(B\) and also to \(C\) (possibly by differing paths), then there is a \(D\) such that \(B\) and \(C\) both reduce in many steps to \(D\)''.
 
 There are several techniques to showing this property for a reduction system.
 I took the approach taken by Takahashi~\cite{Takahashi} in his work on the \(\lambda\)-calculus of defining two new inductive definitions, parallel reduction and complete development, to show that \(\beta\)-reduction of terms has the confluence property.
-I followed Randy Pollack's excellent overview~\cite{pollack} of the technique and implemented the ideas (for an untyped calculus) in a typed calculus, extended as seen above.
+I followed Randy Pollack's overview~\cite{pollack} of the technique and implemented the ideas (for an untyped calculus) in a typed calculus, extended as seen above.
 
 First, I define the relation for parallel reduction (written \(A \gg B\)).
 Intuitively, this relation is similar to \(\beta\)-reduction, but at any step where recursive reductions (like reducing the left or right subterm of an application) as well as structural reductions (like contracting a redex) are possible, it performs both at once.
@@ -1190,7 +1222,7 @@ Complete developments remove this ambiguity.
 
 It is always the case that a term can be reduced by the complete development relation; this is obvious for parallel reduction (by \emph{refl}), but can also be shown for a complete development.
 
-\begin{lemma}
+\begin{lemma}[\ident{complete-development-exists}]
 For any term \(A\), there is an \(A'\) such that \(A \ggg A'\).
 \end{lemma}
 \begin{proof}
@@ -1200,7 +1232,7 @@ In each case, choose a rule based on the structure, then obtain \(A'\) by means 
 
 To progress towards the confluence property, I need to show the \emph{diamond property} for parallel reduction, but to get there an auxiliary lemma is required about decomposing a complete development into two parallel reductions.
 
-\begin{lemma}
+\begin{lemma}[\ident{complete-development-triangle}]
 Suppose \(A \ggg D\) and \(A \gg B\).
 Then \(B \gg D\).
 \end{lemma}
@@ -1211,7 +1243,7 @@ For each case, consider how \(A\) (\(A\) and \(D\) are now known from the case) 
 
 It can now be shown that parallel reduction has the diamond property: that reduction that goes in different directions can always be re-united by another step.
 
-\begin{lemma}
+\begin{lemma}[\ident{parallel-reduction-diamond}]
 Assume that \(A \gg B\) and \(A \gg C\).
 Then there is a \(D\) such that \(B \gg D\) and \(C \gg D\).
 \end{lemma}
@@ -1241,7 +1273,7 @@ A_{02}	@>\gg>>	A_{12}	@>\gg>>	A_{22}	@>\gg>>	\ldots\\
 \label{fig:diagram-chase}
 \end{figure}
 
-\begin{lemma}
+\begin{lemma}[\ident{parallel-reduction-is-beta-reduction}]
 If \(A \gg B\), then \(A \to_\beta^* B\).
 \end{lemma}
 \begin{proof}
@@ -1249,7 +1281,7 @@ By induction on the derivation of \(A \gg B\).
 Each case can be converted straightforwardly to a chain of zero or more \(\beta\)-reductions.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{beta-reduction-is-parallel-reduction}]
 If \(A \to_\beta B\), then \(A \gg B\).
 \end{lemma}
 \begin{proof}
@@ -1257,7 +1289,7 @@ By induction on the derivation of the \(\beta\)-reduction.
 Each case forms (some part of) the corresponding parallel reduction rule, and the \emph{refl} rule of parallel reduction allows reducing subterms that the \(\beta\)-reduction does not reduce.
 \end{proof}
 
-\begin{lemma}
+\begin{lemma}[\ident{parallel-reduction-beta-reduces-equivalent}]
 \label{lemma:reduction-equivalence}
 \(\wrap{\to_\beta^*}\) and \(\wrap{\gg^*}\) are equivalent.
 \end{lemma}
@@ -1267,7 +1299,7 @@ Directly from the previous pair of lemmas.
 
 Finally, the confluence property follows from this and the diamond property of the closure of parallel reduction.
 
-\begin{theorem}
+\begin{theorem}[\ident{confluence}]
 Suppose \(A \to_\beta^* B\) and \(A \to_\beta^* C\).
 Then there exists a \(D\) such that \(B \to_\beta^* D\) and \(C \to_\beta^* D\).
 \end{theorem}
@@ -1276,3 +1308,10 @@ By assumption, \(A \gg^* B\) and \(A \gg^* C\), since the two relations are equi
 Then obtain a \(D\) such that \(B \gg^* D\) and \(C \gg^* D\), using the diamond property of \(\wrap{\gg^*}\).
 Finally, note that \(B \to_\beta^* D\) and \(C \to_\beta^* D\), again using the equivalence.
 \end{proof}
+
+\section{Summary}
+In this chapter I implemented the formal parts of my project.
+I provided implementations of freshness (\S\ref{sec:freshness}) and permutations (\S\ref{sec:permutations}) to use for subsequent stages in the project.
+Then, I used these to define operations on concrete \(\lambda\)-terms (\S\ref{sec:raw-terms}), and produced a new term, quotiented by \(\alpha\)-equivalence (\S\ref{sec:quotient-terms}), and typing judgements on these terms.
+I then implemented a type inference algorithm (\S\ref{sec:type-inference}), lifted it to the quotient terms, and proved it correct.
+I also added some extensions to the original task, namely unit and pair types (\S\ref{sec:pairs}), and a proof of confluence (\S\ref{sec:confluence}).

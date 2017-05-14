@@ -22,6 +22,10 @@
 \bibliography{dissertation}
 \bibliography{proposal/proposal}
 
+% minted configuration
+\usepackage[gray]{xcolor}
+\setminted{frame=lines}
+
 \raggedbottom
 \sloppy
 \clubpenalty1000%
@@ -33,7 +37,9 @@
 
 % helpful macros
 \newcommand{\thetitle}{Verified Metatheory and Type Inference for a Name-Carrying Simply-Typed \(\lambda\)-Calculus}
+\newcommand{\ident}[1]{\texttt{#1}}
 \newcommand{\infertype}{\mathrm{infer}}
+\newcommand{\names}{\mathbb{A}}
 \newcommand{\unit}{\mathrm{unit}}
 \newcommand{\wrap}[1]{\left(#1\right)}
 \newcommand{\swap}{\leftrightarrow}
@@ -68,19 +74,23 @@ Name:              & \bf Michael Rawson\\
 College:           & \bf Robinson College\\
 Project Title:     & \bf \thetitle\\
 Examination:       & \bf Computer Science Tripos -- Part II, July 2017\\
-Word Count:        & 0xDEADBEEF\footnotemark[1]\\
+Word Count:        & 14063\footnotemark[1]\\
 Project Originator:& Dr. Dominic Mulligan\\
 Supervisors:       & Dr. Dominic Mulligan and Dr. Victor Gomes\\
 \end{tabular}
 }
-\footnotetext[1]{This word count has not been computed yet, but I assume it is too small\ldots}
+\footnotetext[1]{As computed by \emph{texcount} --- uh oh!}
 \stepcounter{footnote}
 
-\section*{Origin Aims of the Project}
-TODO
+\section*{Original Aims of the Project}
+I aim to create a mechanised implementation implementation in Isabelle of the simply-typed \(\lambda\)-calculus, together with a verified algorithm for type inference.
+Emphasis is placed on the treatment of binders in the calculus and the approach taken with representing \(\alpha\)-equivalence.
 
 \section*{Work Completed}
-Yes.
+This project meets all proposed success criteria, and adds two extensions.
+I have implemented the calculus, encoded the \(\alpha\)-equivalence equivalence relation, and specified typing rules and a type inference algorithm for the calculus.
+A number of correctness proofs accompany this implementation.
+Further to this, I implemented extensions, one to add unit and pair values and corresponding types to the implementation, and one to show the confluence property of the calculus.
 
 \section*{Special Difficulties}
 None.
@@ -97,6 +107,9 @@ I, Michael Rawson of Robinson College, being a candidate for Part II of the Comp
 
 \newpage
 \section*{Acknowledgements}
+I wish to acknowledge the efforts of my supervisors in guiding me in this project.
+Both offered advice when I needed it, and let me get on when I didn't --- an unusual and invaluable skill!
+
 \pagestyle{headings}
 
 \input{chapters/introduction/introduction}
