@@ -16,6 +16,7 @@
 \usepackage{isabellesym}
 \usepackage{comment}
 \usepackage[outputdir=output]{minted}
+\usepackage{noindentafter}
 
 % bibliography
 \usepackage[backend=bibtex, sorting=none]{biblatex}
@@ -24,6 +25,7 @@
 
 % minted configuration
 \usepackage[gray]{xcolor}
+\usepackage{tcolorbox}
 \setminted{frame=lines}
 
 \raggedbottom
@@ -46,12 +48,17 @@
 \newcommand{\dollar}{\mathbin{\textrm{\footnotesize{\textbf{\$}}}}}
 \newcommand{\image}{\mathbin{\textrm{\footnotesize{\textbf{\{\$\}}}}}}
 \newcommand{\fvs}{\mathrm{fvs}}
+\newcommand{\supp}{\mathrm{supp}}
 \newtheorem*{definition}{Definition}
 \newtheorem{lemma}{Lemma}
 \newtheorem{theorem}{Theorem}
 \newenvironment{implementation}
- {\bigskip\setlength{\leftskip}{1cm}\begin{isabellebody}}
- {\end{isabellebody}\setlength{\leftskip}{0cm}\bigskip}
+ {\bigskip\begin{tcolorbox}[width=\textwidth]\begin{isabellebody}}
+ {\end{isabellebody}\end{tcolorbox}\setlength{\leftskip}{0cm}}
+
+% remove indents from paragraphs after some environments
+\NoIndentAfterEnv{implementation}
+\NoIndentAfterEnv{proof}
 
 \begin{document}
 \pagestyle{empty}
@@ -74,16 +81,16 @@ Name:              & \bf Michael Rawson\\
 College:           & \bf Robinson College\\
 Project Title:     & \bf \thetitle\\
 Examination:       & \bf Computer Science Tripos -- Part II, July 2017\\
-Word Count:        & 14063\footnotemark[1]\\
+Word Count:        & 11,976\footnotemark[1]\\
 Project Originator:& Dr. Dominic Mulligan\\
 Supervisors:       & Dr. Dominic Mulligan and Dr. Victor Gomes\\
 \end{tabular}
 }
-\footnotetext[1]{As computed by \emph{texcount} --- uh oh!}
+\footnotetext[1]{As computed by \emph{texcount}}
 \stepcounter{footnote}
 
 \section*{Original Aims of the Project}
-I aim to create a mechanised implementation implementation in Isabelle of the simply-typed \(\lambda\)-calculus, together with a verified algorithm for type inference.
+I aim to create a mechanisation in Isabelle of the simply-typed \(\lambda\)-calculus, together with a verified algorithm for type inference.
 Emphasis is placed on the treatment of binders in the calculus and the approach taken with representing \(\alpha\)-equivalence.
 
 \section*{Work Completed}

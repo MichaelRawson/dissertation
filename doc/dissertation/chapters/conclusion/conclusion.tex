@@ -1,9 +1,9 @@
 \chapter{Conclusion}
 I have shown the development of a formalised implementation of a typed \(\lambda\)-calculus in the proof assistant Isabelle, complete with correctness properties about the type system and verified, extracted, code for type inference.
 All success criteria have been met, and some extensions have been made, augmenting the core calculus and showing the confluence property.
-This work differs from, and improves upon a typical implementation in its use of nominal techniques that have several advantages over other methods of name binding.
+This work differs from a typical implementation in its use of nominal techniques that have several advantages over other methods of name binding.
 
-\section{List of Results}
+\section{List of results}
 Taking success criteria from my project proposal, they have all been met:
 \begin{enumerate}
 \item
@@ -23,24 +23,23 @@ Although Haskell was the language I eventually used for testing, I don't conside
 The dissertation is complete.
 \end{enumerate}
 
-\section{Further Work}
-There is significant scope for further work in this area, and any one of several areas could be pursued.
+\section{Further work}
+There is scope for further work in this area, and any one of several areas could be pursued.
 Improving the nominal approach is one possible extension, perhaps adding some automation to remove some of the painful points.
-Perhaps Nominal Isabelle could be improved/extended so that code extraction is possible, or alternatively the abstract-term approach could be implemented so that only relevant theory is implemented for any given system and issues of names can be avoided altogether.
-
-Alternatively, extending or modifying the calculus to more interesting calculi, like System F.
-System F includes binders at the type level as well as at the term level, so this would be a good test of the nominal approach when multiple binders are present.
-Additionally, the type system is much more complex, allowing for more practical programming, while (with some restrictions) type inference remains decidable~\cite{hindley-milner}.
+Nominal Isabelle could be improved/extended so that code extraction is possible, or alternatively the abstract-term approach could be implemented so that only relevant theory is implemented for any given system and issues of names can be avoided altogether.
+Alternatively, I could extend the project to more interesting calculi, like System F.
+System F adds binders at the type level, so this would be a good test of the nominal approach when multiple binders are present.
+Additionally, the type system is more powerful, allowing for more practical programming, while type inference remains reasonable~\cite{hindley-milner}.
 
 Improving performance of the extracted code is certainly possible.
 While performance of the extracted code (surprisingly) is good without modification, I do not yet know \emph{why} this is the case.
-Investigating this will no doubt lead to some optimisations.
-Combined with a more powerful type system (such as System F), there are plenty of opportunities for efficiency improvements.
+Investigating this will lead to some optimisations.
+Combined with a more powerful type system, there are plenty of opportunities for efficiency improvements.
 
 Further properties of the calculus can be shown, such as the strong normalisation property.
 Strong normalisation is an important property of the simply-typed calculus from the perspective of computability theory, as it shows that the calculus is not Turing-complete (Turing machines may run forever).
 
-\section{Closing Remarks}
+\section{Closing remarks}
 \(\lambda\)-calculus produces a model of computation by manipulating terms involving bound and unbound names.
 By investigating a variety of approaches to binding names, and implementing the most theoretically-pleasing approach, I have arrived at a verified representation of the \(\lambda\)-calculus, as used informally in mathematical arguments.
 Further, I have shown that representing \(\lambda\)-terms by means of an explicit quotient with a nominal equivalence relation over the concrete syntax is laborious, but feasible as an approach, and comes with many advantages.

@@ -1,10 +1,10 @@
 \chapter{Implementation}
-In this chapter I discuss the implementation details of the project.
-The work is split into four modules, or what Isabelle calls \emph{theories}.
-The first (\emph{Fresh}, \S\ref{sec:freshness}) deals with fresh names and implementations of freshness, the second (\emph{Permutation}, \S\ref{sec:permutations}) with a theory of permutations, and the third and fourth (\emph{PreSimplyTyped}, \S\ref{sec:raw-terms} and \emph{SimplyTyped}, \S\ref{sec:quotient-terms}) with \(\lambda\)-terms, before and after the quotient respectively.
-All theories develop upon basic theorems contained in Isabelle's standard library, called \emph{Main}.
+In this chapter I discuss implementation details of the project.
+The work is split into four modules, what Isabelle calls \emph{theories}.
+The first (\emph{Fresh}, \S\ref{sec:freshness}) deals with fresh names, the second (\emph{Permutation}, \S\ref{sec:permutations}) with permutations, and the third and fourth (\emph{PreSimplyTyped}, \S\ref{sec:raw-terms} and \emph{SimplyTyped}, \S\ref{sec:quotient-terms}) with \(\lambda\)-terms, before and after the quotient respectively.
+All theories build upon Isabelle's standard library, called \emph{Main}.
 A dependency graph is shown in Figure \ref{fig:dependencies}.
-Theorems argued here which have a corresponding theorem in the formalisation are marked with the identifier used in the Isabelle source, like this:
+Results shown which have a corresponding theorem in the formalisation are marked as such, like this:
 \setcounter{theorem}{-1}
 \begin{theorem}[\ident{example-in-isabelle}]
 The statement of the theorem.
@@ -22,33 +22,31 @@ A proof of the theorem.
 
 \section{Freshness}
 \label{sec:freshness}
-I first develop a theory of fresh name generation, used later in arguments about fresh names in a given \(\lambda\)-term.
-The implementation should take a set (of some type, since we wish to be parametric) and produce an element not in that set.
-In order to specify an interface over an arbitrary type, I used Isabelle's typeclass mechanism~\cite{isabelle-typeclasses} to make a class (i.e. an interface) for types that can produce a fresh element from a set:
+I develop a theory of freshness, used later to obtain a fresh name for a given binder.
+The implementation should accept a set of names \(S\), and produce an element not in \(S\).
+In order to implement this interface, I used type classes~\cite{isabelle-typeclasses} to make a class for types that can produce a fresh element:
 
 \begin{implementation}
 \isacommand{class}\isamarkupfalse%
 \ fresh\ =\isanewline
 \ \ \isakeyword{fixes}\ fresh{\isacharunderscore}in\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ set\ {\isasymRightarrow}\ {\isacharprime}a{\isachardoublequoteclose}\isanewline
-\ \ \isakeyword{assumes}\ {\isachardoublequoteopen}finite\ S\ {\isasymLongrightarrow}\ fresh{\isacharunderscore}in\ S\ {\isasymnotin}\ S{\isachardoublequoteclose}\isanewline
+\ \ \isakeyword{assumes}\ {\isachardoublequoteopen}finite\ S\ {\isasymLongrightarrow}\ fresh{\isacharunderscore}in\ S\ {\isasymnotin}\ S{\isachardoublequoteclose}
 \end{implementation}
 
-Note the pre-condition of \(S\) being a finite set: otherwise, many useful implementations (such as that of numbers, or finite strings) cannot conform to this interface.
+Note the pre-condition of a \emph{finite} \(S\): otherwise, useful implementations such as numbers or strings cannot conform to this interface.
 To see this, consider (possibly-infinite) sets \(S\) of natural numbers.
 Since \(S\) can be infinite, choose \(S\) to be \(\mathbb{N}\), the set of all natural numbers.
-Now, if \(x\) is to be fresh in \(S\), \(x\) must be a natural number.
-But since \(x \notin S\), \(x\) must also \emph{not} be a natural number, since \(S = \mathbb{N}\) --- hence, a contradiction.
-As a result, sets used to generate a fresh variable must be finite.
+Now, if \(x\) is fresh in \(S\), \(x\) must be a natural number.
+But since \(x \notin S\), \(x\) must also \emph{not} be a natural number, since \(S = \mathbb{N}\) --- a contradiction.
 
-It is now possible to argue about fresh sets in later developments.
-However, to extract executable code, then there must be at least one implementation of this specification of freshness.
-Unfortunately, not any implementation will do: for instance, Isabelle allows use of the Hilbert indefinite description operator \(\epsilon\) in definitions.
-Hilbert's operator is a form of \emph{choice principle} --- the semantics of which are (roughly) ``assuming that there is at least one \(x\) such that \(P(x)\), \(\epsilon x. P(x)\) chooses one such \(x\) and produces its value'' --- so
+To extract executable code, there must be at least one implementation of freshness.
+Unfortunately, not every implementation will suffice: for example, Isabelle allows the Hilbert indefinite description operator \(\epsilon\) inside definitions.
+Hilbert's operator is a \emph{choice principle} --- the semantics of which are ``assuming that there is at least one \(x\) such that \(P(x)\), \(\epsilon x. P(x)\) chooses one such \(x\) (by no specific means) and returns \(x\)'' --- so
 \[
 \epsilon x. x \notin S
 \]
-would be a perfectly valid (and logical) definition of freshness for any instance for which you could prove there was such an \(x\) --- but this definition is not executable, and hence code cannot be extracted from it.
-Natural numbers provide a straightforward interface to define an \emph{executable} freshness algorithm for: to make a fresh natural number from a finite set \(S\), take the largest element of the set, then add 1 to it (in the case of the empty set, produce 0).
+would be a definition of freshness if there is such an \(x\) --- but this is not \emph{executable}, and code cannot be extracted from it.
+Natural numbers are one possible implementation: to make a fresh natural number from a finite set \(S\), take the largest element of the set (or 0), then add 1 to it.
 
 \begin{implementation}
 \isacommand{instantiation}\isamarkupfalse%
@@ -56,49 +54,47 @@ Natural numbers provide a straightforward interface to define an \emph{executabl
 \isakeyword{begin}\isanewline
 \ \ \isacommand{definition}\isamarkupfalse%
 \ fresh{\isacharunderscore}in{\isacharunderscore}nat\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}nat\ set\ {\isasymRightarrow}\ nat{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
-\ \ \ \ {\isacharbrackleft}code{\isacharbrackright}{\isacharcolon}\ {\isachardoublequoteopen}fresh{\isacharunderscore}in{\isacharunderscore}nat\ S\ {\isasymequiv}\ {\isacharparenleft}if\ Set{\isachardot}is{\isacharunderscore}empty\ S\ then\ {\isadigit{0}}\ else\ Max\ S\ {\isacharplus}\ {\isadigit{1}}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ \ \ {\isacharbrackleft}code{\isacharbrackright}{\isacharcolon}\ {\isachardoublequoteopen}fresh{\isacharunderscore}in{\isacharunderscore}nat\ S\ {\isasymequiv}\ {\isacharparenleft}if\ Set{\isachardot}is{\isacharunderscore}empty\ S\ then\ {\isadigit{0}}\ else\ Max\ S\ {\isacharplus}\ {\isadigit{1}}{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-Note the \texttt{code} tag --- this indicates code to be extracted later.
-The above also generates a proof obligation to show that this satisfies the freshness specification.
+The \texttt{code} tag indicates code to be extracted later.
+The above also generates a proof obligation to show the implementation satisfies the freshness specification.
 
 \begin{lemma}
-For any finite set \(S\) of natural numbers, the procedure above produces a number \(n\) such that \(n \notin S\).
+For any finite set \(S\) of natural numbers, the procedure given produces an \(n\) such that \(n \notin S\).
 \end{lemma}
 \begin{proof}
 \(S\) is either the empty set, or it is not.
-If \(S\) is empty, 0 is produced as fresh in \(S\).
-\(0 \notin S\) by definition of the empty set.
-If \(S\) is non-empty, then \(n'\) is produced such that \(n'\) is one more (i.e. strictly larger) than the largest element of \(S\), \(n\).
+If \(S\) is empty, 0 is produced as fresh in \(S\), and clearly \(0 \notin S\).
+If \(S\) is non-empty, then \(n'\) is produced such that \(n'\) is larger than the largest element of \(S\), \(n\).
 Suppose for contradiction that \(n'\) were in \(S\).
 Then \(n'\) would be the largest element of \(S\), not \(n\).
 Hence \(n'\) must not be in \(S\).
 \end{proof}
 
-\section{Swappings and Permutations}
+\section{Swappings and permutations}
 \label{sec:permutations}
-Finitely-supported permutations are used in the nominal definition of \(\alpha\)-equivalence, seen in \S\ref{sec:nominal-intro}.
-I define permutations in terms of sequences of swappings, permuting a single variable for another.
-While using this definition, complex permutations can accumulate and need reducing by means of simplification rules, which determine when permutations are equivalent.
-Simple equality here will not suffice: permutations are ``equal'' iff they have the same effect on all inputs.
-This is another use case for the quotient type mechanism: by identifying permutations that are extensionally, but not intensionally, equal, a new type can be made that does not make this distinction.
-Therefore, I proceed by first defining swappings, then \emph{pre-permutations}, then later produce \emph{permutations}.
-Here, I use a type synonym for the definition of the permutation type.
+Finitely-supported permutations are used in the nominal definition (\S\ref{sec:nominal-intro}) of \(\alpha\)-equivalence.
+I define permutations as sequences of swappings, permuting by swapping single variables at a time.
+Multiple sequences can correspond to the same permutation, so simple equality here will not suffice: permutations are ``equal'' iff they have the same effect on all inputs.
+This is another use for quotient types: by identifying equivalent permutations, a new type can be made that does not make this distinction.
+Therefore, I define \emph{pre-permutations}, then \emph{permutations}.
+Here, I use type synonyms for the definition of the permutation type:
 
 \begin{implementation}
 \isacommand{type{\isacharunderscore}synonym}\isamarkupfalse%
 \ {\isacharprime}a\ swp\ =\ {\isachardoublequoteopen}{\isacharprime}a\ {\isasymtimes}\ {\isacharprime}a{\isachardoublequoteclose}\isanewline
 \isacommand{type{\isacharunderscore}synonym}\isamarkupfalse%
-\ {\isacharprime}a\ preprm\ =\ {\isachardoublequoteopen}{\isacharprime}a\ swp\ list{\isachardoublequoteclose}\isanewline
+\ {\isacharprime}a\ preprm\ =\ {\isachardoublequoteopen}{\isacharprime}a\ swp\ list{\isachardoublequoteclose}
 \end{implementation}
 
 \begin{definition}[\ident{preprm-apply}]
-Application of pre-permutations to variables, \(\pi \dollar x\), is defined as follows.
+Application of pre-permutations to names, \(\pi \dollar x\), is defined recursively:
 \begin{enumerate}
 \item
 \(\varepsilon \dollar x = x\)
 \item
-Applying the sequence \(\wrap{a, b} :: \pi'\) to \(x\) is the same as applying \(\wrap{a, b}\) to \(\pi' \dollar x\), since \(\pi'\) is applied first, then \(\wrap{a, b}\) is applied to the result.
+\(\wrap{\wrap{a, b} :: \pi'} \cdot x = \wrap{a, b} \cdot \pi' \cdot x\), since \(\pi'\) is applied first, then \(\wrap{a, b}\).
 \end{enumerate}
 \end{definition}
 
@@ -110,20 +106,20 @@ Applying the sequence \(\wrap{a, b} :: \pi'\) to \(x\) is the same as applying \
 \isacommand{fun}\isamarkupfalse%
 \ preprm{\isacharunderscore}apply\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ preprm\ {\isasymRightarrow}\ {\isacharprime}a\ {\isasymRightarrow}\ {\isacharprime}a{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
 \ \ {\isachardoublequoteopen}preprm{\isacharunderscore}apply\ {\isacharbrackleft}{\isacharbrackright}\ x\ =\ x{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ {\isachardoublequoteopen}preprm{\isacharunderscore}apply\ {\isacharparenleft}s\ {\isacharhash}\ ss{\isacharparenright}\ x\ {\isacharequal}\ swp{\isacharunderscore}apply\ s\ {\isacharparenleft}preprm{\isacharunderscore}apply\ ss\ x{\isacharparenright}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ {\isachardoublequoteopen}preprm{\isacharunderscore}apply\ {\isacharparenleft}s\ {\isacharhash}\ ss{\isacharparenright}\ x\ {\isacharequal}\ swp{\isacharunderscore}apply\ s\ {\isacharparenleft}preprm{\isacharunderscore}apply\ ss\ x{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-From this definition, we can show that the defined identity element is in fact identity.
+The defined identity element is in fact identity:
 
 \begin{lemma}[\ident{preprm-apply-id}]
 \label{lemma:identity-application}
-\(\varepsilon\) has the property \(\varepsilon \dollar x = x\), for any \(x\).
+\(\varepsilon\) satisfies \(\varepsilon \dollar x = x\), for any \(x\).
 \end{lemma}
 \begin{proof}
 By definition of application.
 \end{proof}
 
-In later proofs about the \(\alpha\)-equivalence of binders, it's useful to be able to argue both that \(x = y \Longrightarrow \pi \dollar x = \pi \dollar y\) (which follows from identity), its inverse, \(x \neq y \Longrightarrow \pi \dollar x \neq \pi \dollar y\), and the converse, \(\pi \dollar x = \pi \dollar y \Longrightarrow x = y\) (i.e. that permutation application is injective).
+In later proofs about \(\alpha\)-equivalence, I require that \(x = y \Longrightarrow \pi \dollar x = \pi \dollar y\) (which follows from identity), its inverse, \(x \neq y \Longrightarrow \pi \dollar x \neq \pi \dollar y\), and the converse, \(\pi \dollar x = \pi \dollar y \Longrightarrow x = y\).
 
 \begin{lemma}[\ident{preprm-apply-unequal}]
 \label{lemma:apply-unequal}
@@ -131,7 +127,7 @@ If \(x \neq y\), then \(\pi \dollar x \neq \pi \dollar y\)
 \end{lemma}
 \begin{proof}
 By induction on \(\pi\).
-The base case is easy using Lemma \ref{lemma:identity-application}, as by assumption \(x \neq y\).
+The base case follows from Lemma \ref{lemma:identity-application}.
 For the inductive step, suppose \(x' \neq y'\).
 Then \([\wrap{a, b}] \dollar x' \neq [\wrap{a, b}] \dollar y'\), by cases on \(x'\) and \(y'\).
 \end{proof}
@@ -146,44 +142,42 @@ Using the inductive hypothesis, obtain \([(a, b)] \dollar \wrap{\pi' \dollar x} 
 Then use the contrapositive of Lemma \ref{lemma:apply-unequal} to show that \(x = y\) using the inductive hypothesis.
 \end{proof}
 
-There are a couple of other useful operations on pre-permutations that are defined on the pre-permutations, then lifted over the equivalence relation.
+Some operations on pre-permutations are defined on the pre-permutations, then lifted over the equivalence relation.
 
 \begin{definition}[\ident{preprm-compose}]
-The composite pre-permutation \(\pi \diamond \sigma\) is the sequence \(\sigma\) appended to the sequence \(\pi\) to create a new sequence.
+The composite pre-permutation \(\pi \diamond \sigma\) is \(\sigma\) appended to \(\pi\).
 \end{definition}
 
 \begin{lemma}[\ident{preprm-apply-composition}]
 \label{lemma:apply-composition}
-Application of the composite permutation \(\pi \diamond \sigma\) is the same as applying first \(\sigma\), then \(\pi\).
+Application of \(\pi \diamond \sigma\) is equivalent to applying first \(\sigma\), then \(\pi\).
 \end{lemma}
 \begin{proof}
-By induction on \(\pi\).
-Both cases then follow by definition.
+By induction on \(\pi\), both cases by definition.
 \end{proof}
-
-A common simplifying argument is to move swappings around until two are adjacent, since clearly swapping two things twice is the same as not swapping them at all.
 
 \begin{lemma}[\ident{preprm-unit-involution}]
 \label{lemma:unit-involution}
-Composition of the unit permutation \([\wrap{a, b}]\) with itself is equivalent to the identity element.
+Composition of \([\wrap{a, b}]\) with itself is equivalent to the identity element.
 \end{lemma}
 \begin{proof}
-Unfold the definition of equivalence, then consider whether \(x\), the variable the permutation is applied to, is \(a\), \(b\), or neither.
+Consider whether \(x\), the variable the permutation is applied to, is \(a\), \(b\), or neither.
 If it is \(a\) or \(b\), then swapping \(a\) to \(b\), then \(b\) to \(a\) (or vice-versa) produces the same \(x\).
-If it is not, then the swapping has no effect, so two iterations of swapping still has no effect.
+If it is not, then the swapping has no effect.
 \end{proof}
 
 \begin{definition}[\ident{preprm-inv}]
-The inverse of a permutation \(\pi\), \(\pi^{-1}\), is defined to be the reverse of the sequence of swappings \(\pi\) consists of.
+The inverse of a permutation \(\pi\), \(\pi^{-1}\), is defined to be the reverse of \(\pi\).
 \end{definition}
 
 \begin{implementation}
 \isacommand{definition}\isamarkupfalse%
 \ preprm{\isacharunderscore}inv\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ preprm\ {\isasymRightarrow}\ {\isacharprime}a\ preprm{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
-\ \ {\isachardoublequoteopen}preprm{\isacharunderscore}inv\ {\isasympi}\ {\isasymequiv}\ rev\ {\isasympi}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}preprm{\isacharunderscore}inv\ {\isasympi}\ {\isasymequiv}\ rev\ {\isasympi}{\isachardoublequoteclose}
 \end{implementation}
 
-It can be shown that this is in fact the inverse of a permutation as follows.
+It can be shown that this is the inverse operation:
+
 \begin{lemma}[\ident{preprm-inv-involution}]
 \label{lemma:inverse-involution}
 For any \(\pi\) and \(x\), \(\pi^{-1} \dollar \pi \dollar x = x\), and vice-versa, \(\pi \dollar \pi^{-1} \dollar x = x\).
@@ -199,7 +193,7 @@ Note that
 \[
 \wrap{[\wrap{a, b}] \diamond \pi'}^{-1} = \pi'^{-1} \diamond [\wrap{a, b}]
 \]
-by definition of inverse.
+by definition.
 Hence, using Lemmas \ref{lemma:apply-composition} and \ref{lemma:unit-involution} and the inductive hypothesis,
 \begin{align*}
 \wrap{[\wrap{a, b}] \diamond \pi'}^{-1} \dollar \wrap{\wrap{[\wrap{a, b}] \diamond \pi'} \dollar x}
@@ -210,31 +204,31 @@ Hence, using Lemmas \ref{lemma:apply-composition} and \ref{lemma:unit-involution
 &= x\\
 \end{align*}
 as required.
-The alternative proposition follows from this and the fact that \(\wrap{\pi^{-1}}^{-1} = \pi\), noting that reversing a list twice produces the original list.
+The alternative proposition follows from this and the fact that \(\wrap{\pi^{-1}}^{-1} = \pi\), given reversing a list is involutive.
 \end{proof}
 
-By using the definition of permutation application, I can define that permutations are equivalent when they are members of a relation, so I start by defining an extensional equivalence relation:
+I define an extensional equivalence relation to relate equivalent permutations.
 
 \begin{implementation}
 \isacommand{definition}\isamarkupfalse%
 \isanewline
 \ \ preprm{\isacharunderscore}ext\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ preprm\ {\isasymRightarrow}\ {\isacharprime}a\ preprm\ {\isasymRightarrow}\ bool{\isachardoublequoteclose}\isanewline
 \ \ \isakeyword{where}\isanewline
-\ \ {\isachardoublequoteopen}{\isasympi}\ =p\ {\isasymsigma}\ {\isasymequiv}\ {\isasymforall}x{\isachardot}\ preprm{\isacharunderscore}apply\ {\isasympi}\ x\ =\ preprm{\isacharunderscore}apply\ {\isasymsigma}\ x{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isasympi}\ =p\ {\isasymsigma}\ {\isasymequiv}\ {\isasymforall}x{\isachardot}\ preprm{\isacharunderscore}apply\ {\isasympi}\ x\ =\ preprm{\isacharunderscore}apply\ {\isasymsigma}\ x{\isachardoublequoteclose}
 \end{implementation}
 
-i.e. that \(\pi\) and \(\sigma\) are equivalent, \(\pi \equiv_p \sigma\),  when for any input \(x\) applying \(\pi\) and \(\sigma\) produces the same result.
-This relation is in fact an equivalence relation:
+i.e. that \(\pi \equiv_p \sigma\) when for any \(x\) applying \(\pi\) and \(\sigma\) produces the same result.
+This relation is an equivalence relation:
 
 \begin{lemma}
+\label{lemma:prm-equivalence}
 \(\equiv_p\) is an equivalence relation.
 \end{lemma}
 \begin{proof}
-Unfolding the definition of equivalence, \(\equiv_p\) is trivially reflexive, symmetric, and transitive.
-Therefore it is an equivalence relation.
+Unfolding the definition of equivalence, \(\equiv_p\) is reflexive, symmetric, and transitive, and hence an equivalence relation.
 \end{proof}
 
-Several properties of composition and inverse under this equivalence behave as they would under equality as well.
+Several properties behave under equivalence as they would under equality.
 
 \begin{lemma}[\ident{preprm-ext-compose-left}]
 If \(\sigma \equiv_p \tau\), then \(\pi \diamond \sigma \equiv_p \pi \diamond \tau\).
@@ -265,7 +259,8 @@ From these obtain \(\pi \diamond \pi^{-1} \equiv_p \sigma \diamond \sigma^{-1}\)
 Finally, derive the result by applying Lemma \ref{lemma:uncompose} and the assumptions.
 \end{proof}
 
-It is also algebraically interesting to note that composition with an inverse also produces identity.
+It is also expected that composition with an inverse produces identity.
+
 \begin{lemma}[\ident{preprm-inv-compose}]
 \label{lemma:group-inverse}
 For any \(\pi\), \(\pi^{-1} \diamond \pi \equiv_p \varepsilon\).
@@ -274,7 +269,7 @@ For any \(\pi\), \(\pi^{-1} \diamond \pi \equiv_p \varepsilon\).
 Using Lemmas \ref{lemma:inverse-involution} and \ref{lemma:apply-composition}, this follows directly.
 \end{proof}
 
-The preceding theory about permutations and how application, composition, and inversion work together can now be lifted into an extensional context with a quotient type.
+The preceding theory can now be lifted into an extensional context with a quotient type.
 
 \begin{implementation}
 \isacommand{quotient{\isacharunderscore}type}\isamarkupfalse%
@@ -299,16 +294,16 @@ The preceding theory about permutations and how application, composition, and in
 \endisatagproof
 \end{implementation}
 
-The quotient-type construction produces a proof obligation to show that \(\equiv_p\) is an equivalence relation, which has already been shown.
-There is now a tedious, but necessary task of lifting all definitions and lemmas (often easier to prove on the raw type) into the new equivalence.
-For example, definitions are lifted like so:
+The quotient-type construction produces an obligation to show that \(\equiv_p\) is an equivalence (Lemma \ref{lemma:prm-equivalence}).
+All work must now be lifted into the new equivalence.
+Definitions are lifted like so:
 
 \begin{implementation}
 \isacommand{lift{\isacharunderscore}definition}\isamarkupfalse%
 \ prm{\isacharunderscore}id\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ prm{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isasymepsilon}{\isachardoublequoteclose}{\isacharparenright}\ \isakeyword{is}\ preprm{\isacharunderscore}id%
 \end{implementation}
 
-and a lemma might be transferred from acting on the equivalence class to a concrete term like so:
+Lemmas as follows:
 
 \begin{implementation}
 \isacommand{lemma}\isamarkupfalse%
@@ -325,25 +320,25 @@ and a lemma might be transferred from acting on the equivalence class to a concr
 \endisatagproof
 \end{implementation}
 
-It's instructive to note at this point that the set of permutations over a base set \(S\), \(P_S\) form a group \(\wrap{P_S, \circ}\), with inverses being provided by the inverse operation, and \(\varepsilon\) as the identity element.
+The set of permutations over a base set \(S\), \(P_S\) form a group \(\wrap{P_S, \circ}\): each element has an inverse, and \(\varepsilon\) is the identity element.
 This is shown in the Isabelle source.
-Some final operations did not need to be defined on pre-permutations, and could be defined directly on the quotiented type.
+Other operations could be defined directly on the quotient type.
 
 \begin{definition}[\ident{prm-set}]
-The image of a set \(S\) under a permutation \(\pi\), \(\pi \image S\), is the image of applying \(\pi\) on that set, \(\{\pi \dollar x\ |\ x \in S\}\).
+The image of a set \(S\) under a permutation \(\pi\), \(\pi \image S\), is defined to be \(\{\pi \dollar x\ |\ x \in S\}\).
 \end{definition}
 
 This is the \emph{pointwise action} of \(\pi\) on \(S\), which allows for a permutation action on sets of names, and hence for a notion of equivariance on the free variables of a term.
 
 \begin{implementation}
 \isacommand{definition}\isamarkupfalse%
-\ prm{\isacharunderscore}set\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ prm\ {\isasymRightarrow}\ {\isacharprime}a\ set\ {\isasymRightarrow}\ {\isacharprime}a\ set{\isachardoublequoteclose}\ \isakeyword{where}\isanewline \ \ {\isachardoublequoteopen}prm{\isacharunderscore}set\ {\isasympi}\ S\ {\isasymequiv}\ image\ {\isacharparenleft}prm{\isacharunderscore}apply\ {\isasympi}{\isacharparenright}\ S{\isachardoublequoteclose}\isanewline
+\ prm{\isacharunderscore}set\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ prm\ {\isasymRightarrow}\ {\isacharprime}a\ set\ {\isasymRightarrow}\ {\isacharprime}a\ set{\isachardoublequoteclose}\ \isakeyword{where}\isanewline \ \ {\isachardoublequoteopen}prm{\isacharunderscore}set\ {\isasympi}\ S\ {\isasymequiv}\ image\ {\isacharparenleft}prm{\isacharunderscore}apply\ {\isasympi}{\isacharparenright}\ S{\isachardoublequoteclose}
 \end{implementation}
 
 \section{Raw \(\lambda\)-terms}
 \label{sec:raw-terms}
-Simple types \(\tau, \sigma, \ldots\) and \(\lambda\)-terms (uppercase variables) are defined inductively with an Isabelle datatype, as described in \S\ref{sec:lambda-intro}.
-I use natural numbers for a concrete variable type as there is a freshness implementation, but any other variable that satisfies the freshness constraints can be used: strings of characters are possible, but the set of booleans is not.
+Simple types \(\tau, \sigma, \ldots\) and \(\lambda\)-terms (uppercase variables) are defined as an Isabelle datatype, as described in \S\ref{sec:lambda-intro}.
+I use natural numbers for a concrete variable type as they implement freshness, but any other type that satisfies freshness can be used.
 
 \begin{implementation}
 \isacommand{type{\isacharunderscore}synonym}\isamarkupfalse%
@@ -358,10 +353,10 @@ I use natural numbers for a concrete variable type as there is a freshness imple
 \ {\isacharprime}a\ ptrm\ =\isanewline
 \ \ PVar\ {\isacharprime}a\isanewline
 {\isacharbar}\ PApp\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ PFn\ {\isacharprime}a\ type\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ PFn\ {\isacharprime}a\ type\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}
 \end{implementation}
 
-Defining the action of permutations on pre-terms, \(\pi \bullet X\), is done recursively, since the applying the permutation commutes with the structure of the term until the base case (i.e. variables or the name in a binder).
+The action of permutations on pre-terms, \(\pi \bullet X\) commutes with the structure of the term until the base case (i.e. variables or the name in a binder), so is expressed recursively.
 
 \begin{implementation}
 \isacommand{fun}\isamarkupfalse%
@@ -370,11 +365,11 @@ Defining the action of permutations on pre-terms, \(\pi \bullet X\), is done rec
 {\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}apply{\isacharunderscore}prm\ {\isasympi}\ {\isacharparenleft}PApp\ A\ B{\isacharparenright}\ =\ PApp\isanewline
 \ \ \ \ {\isacharparenleft}ptrm{\isacharunderscore}apply{\isacharunderscore}prm\ {\isasympi}\ A{\isacharparenright}\isanewline
 \ \ \ \ {\isacharparenleft}ptrm{\isacharunderscore}apply{\isacharunderscore}prm\ {\isasympi}\ B{\isacharparenright}{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}apply{\isacharunderscore}prm\ {\isasympi}\ {\isacharparenleft}PFn\ x\ T\ A{\isacharparenright}\ =\ PFn\ {\isacharparenleft}{\isasympi}\ {\isachardollar}\ x{\isacharparenright}\ T\ {\isacharparenleft}ptrm{\isacharunderscore}apply{\isacharunderscore}prm\ {\isasympi}\ A{\isacharparenright}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}apply{\isacharunderscore}prm\ {\isasympi}\ {\isacharparenleft}PFn\ x\ T\ A{\isacharparenright}\ =\ PFn\ {\isacharparenleft}{\isasympi}\ {\isachardollar}\ x{\isacharparenright}\ T\ {\isacharparenleft}ptrm{\isacharunderscore}apply{\isacharunderscore}prm\ {\isasympi}\ A{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-I then can re-define a number of lemmas about the application of permutations in the context of pre-terms by transcribing them.
-For example, compare the following with the corresponding lemmas about application of permutations on names.
+I re-define results from \S\ref{sec:permutations} in the context of pre-terms by transcribing them.
+For example, compare the following with corresponding lemmas about application of permutations.
 
 \begin{implementation}
 \isacommand{lemma}\isamarkupfalse%
@@ -402,28 +397,29 @@ Free variables of a term can also be defined recursively.
 \ ptrm{\isacharunderscore}fvs\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm\ {\isasymRightarrow}\ {\isacharprime}a\ set{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
 \ \ {\isachardoublequoteopen}ptrm{\isacharunderscore}fvs\ {\isacharparenleft}PVar\ x{\isacharparenright}\ {\isacharequal}\ {\isacharbraceleft}x{\isacharbraceright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}fvs\ {\isacharparenleft}PApp\ A\ B{\isacharparenright}\ {\isacharequal}\ ptrm{\isacharunderscore}fvs\ A\ {\isasymunion}\ ptrm{\isacharunderscore}fvs\ B{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}fvs\ {\isacharparenleft}PFn\ x\ {\isacharunderscore}\ A{\isacharparenright}\ {\isacharequal}\ ptrm{\isacharunderscore}fvs\ A\ {\isacharminus}\ {\isacharbraceleft}x{\isacharbraceright}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}fvs\ {\isacharparenleft}PFn\ x\ {\isacharunderscore}\ A{\isacharparenright}\ {\isacharequal}\ ptrm{\isacharunderscore}fvs\ A\ {\isacharminus}\ {\isacharbraceleft}x{\isacharbraceright}{\isachardoublequoteclose}
 \end{implementation}
 
-In later lemmas, a given set of names frequently has to be shown to be finite, so that a fresh name can be generated with respect to them.
-To aid this, show that the free variables of a pre-term are always finite.
+Later, a set of names is frequently required to be finite, so that a fresh name can be generated.
+To aid this, I show that the free variables of a pre-term is always a finite set.
+
 \begin{lemma}[\texttt{ptrm-fvs-finite}]
-For any \(X\), the free variables of \(X\) form a finite set.
+The free variables of \(X\) form a finite set.
 \end{lemma}
 \begin{proof}
 By induction on \(X\).
 \end{proof}
 
-This operation can also be shown to be equivariant using the definition of pointwise action, a property used extensively later when working with the \(\alpha\)-equivalence of \(\lambda\)-terms.
+This operation can also be shown equivariant using pointwise action, a property used later when working with the \(\alpha\)-equivalence of \(\lambda\)-terms:
 
 \begin{lemma}[\ident{ptrm-prm-fvs}]
-For any \(X\) and \(\pi\), the free variables of \(\pi \bullet X\) are the image of \(\pi\) in the free variables of \(X\).
+The free variables of \(\pi \bullet X\) are the image of \(\pi\) in the free variables of \(X\).
 \end{lemma}
 \begin{proof}
 By induction on \(X\).
 \begin{enumerate}
 \item
-In the case of variables, note that \(\pi \bullet x = \pi \dollar x\).
+For a variable \(x\), note that \(\pi \bullet x = \pi \dollar x\).
 Then the proposition follows directly.
 \item
 Assume that \(\fvs\wrap{\pi \bullet A} = \pi \image \fvs(A)\), and similarly for \(B\).
@@ -438,7 +434,7 @@ Then the lemma holds for \(\wrap{A\ B}\):
 \end{align*}
 \item
 Assume that \(\fvs\wrap{\pi \bullet A} = \pi \image \fvs(A)\).
-Then finish the lemma as in the application case:
+Then finish as in the application case:
 \begin{align*}
 \fvs\wrap{\pi \bullet \lambda \wrap{x:T}.A} 
 &= \fvs\wrap{\lambda \wrap{\pi \dollar x : T}. \wrap{\pi \bullet A}}\\
@@ -450,8 +446,8 @@ Then finish the lemma as in the application case:
 \end{enumerate}
 \end{proof}
 
-Isabelle also generates a function called \texttt{size} with every datatype to determine the number of nodes contained within a given instance of the datatype --- this corresponds to the definition of term size \(|M|\) described in \S\ref{sec:benchmarking}.
-To use the size of a term (e.g. for induction on the size of said term), it is useful to show that size is equivariant, that \(|\pi \bullet M| = \pi \cdot |M| = |M|\).
+Isabelle generates a function called \texttt{size} with every datatype which reports the number of nodes in a given instance --- this corresponds to the formal definition of term size \(|M|\) described in \S\ref{sec:benchmarking}.
+To use the size of a term (e.g. for induction), it is useful to show that size is equivariant, that \(|\pi \bullet M| = \pi \cdot |M| = |M|\).
 
 \begin{lemma}[\ident{ptrm-size-prm}]
 The size of a pre-term \(X\) is the same as the size of \(X\) under a permutation, \(\pi \bullet X\).
@@ -461,7 +457,7 @@ By induction on the structure of \(X\), then by definition of permutation applic
 \end{proof}
 
 \subsection{\(\alpha\)-equivalence}
-Isabelle provides built-in support for inductive definitions, so reproducing the nominal definition of \(\alpha\)-equivalence introduced in \S\ref{chap:preparation} is straightforward.
+Isabelle provides inductive definitions, so the nominal definition of \(\alpha\)-equivalence introduced in \S\ref{chap:preparation} is straightforward.
 I used a slightly different formulation in which there are two cases for functions: one where the swapping variables are the same, and one when they are not.
 This is equivalent, but makes for a shorter proof script.
 
@@ -474,12 +470,12 @@ This is equivalent, but makes for a shorter proof script.
 {\isacharbar}\ app{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}A\ {\isasymapprox}\ B{\isacharsemicolon}\ C\ {\isasymapprox}\ D{\isasymrbrakk}\ {\isasymLongrightarrow}\ {\isacharparenleft}PApp\ A\ C{\isacharparenright}\ {\isasymapprox}\ {\isacharparenleft}PApp\ B\ D{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ fn{\isadigit{1}}{\isacharcolon}\ {\isachardoublequoteopen}A\ {\isasymapprox}\ B\ {\isasymLongrightarrow}\ {\isacharparenleft}PFn\ x\ T\ A{\isacharparenright}\ {\isasymapprox}\ {\isacharparenleft}PFn\ x\ T\ B{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ fn{\isadigit{2}}{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}a\ {\isasymnoteq}\ b{\isacharsemicolon}\ A\ {\isasymapprox}\ {\isacharbrackleft}a\ {\isasymleftrightarrow}\ b{\isacharbrackright}\ {\isasymbullet}\ B{\isacharsemicolon}\ a\ {\isasymnotin}\ ptrm{\isacharunderscore}fvs\ B{\isasymrbrakk}\isanewline
-\ \ \ \ \ \ \ \ {\isasymLongrightarrow}\ {\isacharparenleft}PFn\ a\ T\ A{\isacharparenright}\ {\isasymapprox}\ {\isacharparenleft}PFn\ b\ T\ B{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ \ \ \ \ \ \ {\isasymLongrightarrow}\ {\isacharparenleft}PFn\ a\ T\ A{\isacharparenright}\ {\isasymapprox}\ {\isacharparenleft}PFn\ b\ T\ B{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-However, it does not provide eliminators by default, and these must be added manually using a separate command.
-Eliminators provide reasoning to ``go backwards'' from an inductive predicate, and see what conditions might have caused it to hold.
-For example, if \(\wrap{A\ C} \sim \wrap{B\ D}\), the only conclusion we can draw from the definition of \(\sim\) is that \(A \sim B\) and \(C \sim D\).
+However, Isabelle does not provide eliminators by default, and these must be added manually.
+Eliminators provide reasoning to ``go backwards'' from an inductive predicate, obtaining conditions which cause the truth of the predicate.
+If \(\wrap{A\ C} \sim \wrap{B\ D}\), the only conclusion possible from the definition of \(\sim\) is that \(A \sim B\) and \(C \sim D\).
 
 \begin{implementation}
 \isacommand{inductive{\isacharunderscore}cases}\isamarkupfalse%
@@ -487,10 +483,10 @@ For example, if \(\wrap{A\ C} \sim \wrap{B\ D}\), the only conclusion we can dra
 \isacommand{inductive{\isacharunderscore}cases}\isamarkupfalse%
 \ appE{\isacharcolon}\ \ {\isachardoublequoteopen}PApp\ A\ B\ {\isasymapprox}\ Y{\isachardoublequoteclose}\isanewline
 \isacommand{inductive{\isacharunderscore}cases}\isamarkupfalse%
-\ fnE{\isacharcolon}\ \ \ {\isachardoublequoteopen}PFn\ x\ T\ A\ {\isasymapprox}\ Y{\isachardoublequoteclose}\isanewline
+\ fnE{\isacharcolon}\ \ \ {\isachardoublequoteopen}PFn\ x\ T\ A\ {\isasymapprox}\ Y{\isachardoublequoteclose}
 \end{implementation}
 
-These provide this style of reasoning, bound to the labels as a theorem.
+These provide this style of reasoning, bound to labels as a theorem.
 For instance \emph{varE} is effectively
 
 \begin{implementation}
@@ -502,10 +498,10 @@ For instance \emph{varE} is effectively
 \ \ \isakeyword{shows}\ {\isachardoublequoteopen}P{\isachardoublequoteclose}\isanewline
 \isakeyword{proof}\isanewline
 \ \ \ldots\isanewline
-\isakeyword{qed}\isanewline
+\isakeyword{qed}
 \end{implementation}
 
-A good test of the definition of this relation is to show that free variables and permutation application are preserved under it, a fundamental property of \(\alpha\)-equivalence.
+A test of this relation is to show that free variables and permutation application are preserved under it, a property of \(\alpha\)-equivalence.
 
 \begin{lemma}[\ident{ptrm-alpha-equiv-fvs}]
 Assume \(X \sim Y\).
@@ -514,7 +510,6 @@ Then \(\fvs(X) = \fvs(Y)\).
 \begin{proof}
 By induction on the derivation of \(X \sim Y\).
 \emph{var}, \emph{app}, and \emph{fn1} are easy.
-
 For \emph{fn2}, assume:
 \begin{itemize}
 \item
@@ -534,7 +529,7 @@ Then, try and show \(\fvs\wrap{\lambda (a:T).A} = \fvs\wrap{\lambda (b:T).B}\).
 &= \wrap{[a \swap b] \image \fvs(B)} - a\\
 \end{align*}
 Now the proof is stuck --- the proof will follow from arriving at the term \(\fvs(B) - b\), but simplifying will not arrive there.
-To fix this, consider whether \(b\) is in the free variables of \(B\).
+Consider whether \(b\) is in the free variables of \(B\).
 If it is, then \([a \swap b] \image \fvs(B) = \fvs(B) - {b} \cup {a}\), since \(a \notin \fvs(B)\), so
 \begin{align*}
 \wrap{[a \swap b] \image \fvs(B)} - a
@@ -559,7 +554,7 @@ Now
 \label{lemma:prm-equivalent}
 Assume \(X \sim Y\).
 Then \(\pi \bullet X \sim \pi \bullet Y\).
-This shows that \(\alpha\)-equivalence is respected by changing variable names, as long as it is done consistently.
+This shows that \(\alpha\)-equivalence is respected by permuting variable names.
 \end{lemma}
 \begin{proof}
 By induction on the derivation of \(X \sim Y\).
@@ -577,15 +572,15 @@ Then, deduce from these the preconditions for \(\lambda (\pi \dollar a:T). \pi \
 Finally, see that both sides of the equivalence can be simplified to produce the result.
 \end{proof}
 
-Now I show that \(\sim\) is an equivalence relation.
-Some simple but specific results are needed first, which are presented informally:
+I show that \(\sim\) is an equivalence relation.
+Some specific results are needed first, which are presented informally:
 
 \begin{lemma}[\ident{ptrm-swp-transfer}]
 \label{lemma:transfer-swapping}
-The statement \([a \swap b] \bullet X \sim Y\) is equivalent to the statement \(X \sim [a \swap b] \bullet Y\).
+\([a \swap b] \bullet X \sim Y\) is equivalent to \(X \sim [a \swap b] \bullet Y\).
 \end{lemma}
 \begin{proof}
-This can be shown in both directions by permuting both sides by \([a \swap b]\) again using Lemma \ref{lemma:prm-equivalent}, then using the fact that \([a \swap b] \diamond [a \swap b] = \varepsilon\).
+This is shown in both directions by permuting both sides by \([a \swap b]\), then using the fact that \([a \swap b] \diamond [a \swap b] = \varepsilon\).
 \end{proof}
 
 \begin{lemma}[\ident{ptrm-alpha-equiv-fvs-transfer}]
@@ -596,7 +591,7 @@ If \(a \notin \fvs(B)\), and \(A \sim [a \swap b] \bullet B\), then \(b \notin \
 By a similar argument.
 \end{proof}
 
-These are now used to argue the conditions of being an equivalence relation, namely reflexivity, symmetry, and transitivity.
+These are used to argue reflexivity, symmetry, and transitivity.
 
 \begin{lemma}[\ident{ptrm-alpha-equiv-reflexive}]
 \(\sim\) is reflexive: that is, for all terms \(X\), \(X \sim X\).
@@ -613,7 +608,7 @@ By induction on the derivation of \(X \sim Y\).
 As usual, \emph{fn2} is the difficult case.
 It is given from the induction process that \(a \neq b\), \(A \sim [a \swap b] \bullet B\), \(a \notin \fvs(B)\), and the inductive hypothesis, \([a \swap b] \bullet B \sim A\).
 From these and Lemmas \ref{lemma:transfer-swapping} and \ref{lemma:transfer-freshness}, deduce that \(b \neq a\), \(B \sim [b \swap a] \bullet A\), and \(b \notin \fvs(A)\).
-Then note that these are the conditions required to show \(\lambda (b:T).B \sim \lambda (a:T).A\), which is the required result.
+These are the conditions for \(\lambda (b:T).B \sim \lambda (a:T).A\), which is the required result.
 \end{proof}
 
 \begin{lemma}[\ident{ptrm-alpha-equiv-transitive}]
@@ -649,10 +644,10 @@ Concluding, \(x \neq z\), \(A \sim [x \swap z] \bullet C\), and \(x \notin \fvs(
 Since \(\sim\) is reflexive, symmetric, and transitive, it is an equivalence relation.
 \end{proof}
 
-\subsection{Type Inference Algorithm}
+\subsection{Type inference algorithm}
 \label{sec:type-inference}
-The last task that needs to be done on the pre-terms is to implement a type inference algorithm on the concrete syntax, which can then be lifted to terms.
-The algorithm is implemented as follows, with typing contexts modelled as a partial (i.e. total, but returning an option) function from names to types.
+I implement a type inference algorithm on the concrete syntax, which can then be lifted to terms.
+The algorithm uses typing contexts, which are modelled as partial (i.e. total, but returning an option type) functions from names to types.
 
 \begin{implementation}
 \isacommand{type{\isacharunderscore}synonym}\isamarkupfalse%
@@ -663,17 +658,16 @@ The algorithm is implemented as follows, with typing contexts modelled as a part
 \ \ {\isachardoublequoteopen}ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isasymGamma}\ {\isacharparenleft}PVar\ x{\isacharparenright}\ {\isacharequal}\ {\isasymGamma}\ x{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isasymGamma}\ {\isacharparenleft}PApp\ A\ B{\isacharparenright}\ {\isacharequal}\isanewline
 \ \ \ \ {\isacharparenleft}case\ {\isacharparenleft}ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isasymGamma}\ A{\isacharcomma}\ ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isasymGamma}\ B{\isacharparenright}\ of\isanewline
-\ \ \ \ \ \ \ {\isacharparenleft}Some\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}{\isacharcomma}\ Some\ {\isasymtau}{\isacharprime}{\isacharparenright}\ {\isasymRightarrow}\ {\isacharparenleft}if\ {\isasymtau}\ {\isacharequal}\ {\isasymtau}{\isacharprime}\ then\ Some\ {\isasymsigma}\ else\ None{\isacharparenright}\isanewline
-\ \ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isasymRightarrow}\ None\isanewline
-\ \ \ {\isacharparenright}{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isasymGamma}\ {\isacharparenleft}PFn\ x\ {\isasymtau}\ A{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}case\ ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isacharparenleft}{\isasymGamma}{\isacharparenleft}x\ {\isasymmapsto}\ {\isasymtau}{\isacharparenright}{\isacharparenright}\ A\ of\isanewline
-\ \ \ \ \ Some\ {\isasymsigma}\ {\isasymRightarrow}\ Some\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}\isanewline
-\ \ \ {\isacharbar}\ None\ {\isasymRightarrow}\ None\isanewline
-\ \ \ {\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ \ \ \ \ {\isacharparenleft}Some\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}{\isacharcomma}\ Some\ {\isasymtau}{\isacharprime}{\isacharparenright}\ {\isasymRightarrow}\ {\isacharparenleft}if\ {\isasymtau}\ {\isacharequal}\ {\isasymtau}{\isacharprime}\ then\ Some\ {\isasymsigma}\ else\ None{\isacharparenright}\isanewline
+\ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isasymRightarrow}\ None{\isacharparenright}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ {\isachardoublequoteopen}ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isasymGamma}\ {\isacharparenleft}PFn\ x\ {\isasymtau}\ A{\isacharparenright}\ {\isacharequal}\isanewline
+\ \ \ \ {\isacharparenleft}case\ ptrm{\isacharunderscore}infer{\isacharunderscore}type\ {\isacharparenleft}{\isasymGamma}{\isacharparenleft}x\ {\isasymmapsto}\ {\isasymtau}{\isacharparenright}{\isacharparenright}\ A\ of\isanewline
+\ \ \ \ \ \ Some\ {\isasymsigma}\ {\isasymRightarrow}\ Some\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}\isanewline
+\ \ \ \ {\isacharbar}\ None\ {\isasymRightarrow}\ None{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-Before this definition can be lifted across equivalence classes, it is required to show that it is invariant under \(\alpha\)-equivalence.
-This can be done with the help of a lemma about swapping names in a typing context.
+To lift this definition, I show that it is invariant under \(\alpha\)-equivalence.
+This is done with a lemma about swapping names in a typing context.
 
 \begin{lemma}[\ident{ptrm-infer-type-swp}]
 \label{lemma:infer-typing-swap}
@@ -702,7 +696,7 @@ For \emph{fn2}, use the definition of the type inference algorithm and Lemma \re
 
 \section{\(\lambda\)-terms with \(\alpha\)-equivalence}
 \label{sec:quotient-terms}
-As before with permutations, pre-terms can now be lifted to terms using the quotient-type machinery.
+As before with permutations, pre-terms are lifted to terms using the quotient-type machinery.
 
 \begin{implementation}
 \isacommand{quotient{\isacharunderscore}type}\isamarkupfalse%
@@ -732,8 +726,8 @@ As before with permutations, pre-terms can now be lifted to terms using the quot
 \endisatagproof
 \end{implementation}
 
-Again, all the definitions have to be lifted as well, but there is some extra boilerplate now, as equality rules don't necessarily hold.
-First, every lifted datatype constructor has to be shown to be not equal to every other datatype constructor, of which the following is an indicative example.
+There is extra boilerplate required by the quotient, as equality rules don't necessarily hold.
+First, every lifted constructor has to be shown to be not equal to every other constructor, of which the following is an indicative example.
 
 \begin{implementation}
 \isacommand{lemma}\isamarkupfalse%
@@ -753,23 +747,22 @@ First, every lifted datatype constructor has to be shown to be not equal to ever
 \endisatagproof
 \end{implementation}
 
-Then, the ``obvious'' conclusions from equality don't necessarily hold either, and must be shown manually.
+Then, the ``obvious'' injective conclusions from equality don't necessarily hold either, and must be shown manually.
 For example, suppose \(\wrap{A\ B} = \wrap{C\ D}\).
-You can conclude that \(A = C\) and \(B = D\) from this, but with the quotient type Isabelle cannot infer this and it has to be shown manually.
-Isabelle does not generate an induction principle for the new terms automatically, but it is possible to produce one by deferring to the concrete-syntax induction principle.
+Conclude that \(A = C\) and \(B = D\) from this, but with the quotient type Isabelle cannot generate the result and it has to be shown manually.
+Isabelle does not generate an induction principle for the new terms automatically, but I produce one by deferring to the concrete induction principle.
 
 \begin{lemma}[\ident{trm-induct}]
-Suppose \(P\) is a unary predicate on terms, suppose also that for all variables \(x\), \(P(x)\) holds, that if \(P(A)\) and \(P(B)\) hold, then \(P\wrap{A\ B}\) also holds, and finally that if \(P(A)\) holds, then \(P\wrap{\lambda (x:T). A}\) also holds.
-Then for any term \(M\), \(P(M)\).
+Suppose \(P\) is a unary predicate on terms, and that for variables \(x\), \(P(x)\) holds, if \(P(A)\) and \(P(B)\) hold, then \(P\wrap{A\ B}\) also holds, and finally that if \(P(A)\) holds, then \(P\wrap{\lambda (x:T). A}\) also holds.
+Then, for any \(M\), \(P(M)\).
 \end{lemma}
 \begin{proof}
-Transfer these hypotheses to the level of pre-terms, then show that for any pre-term \(X\), \(P\wrap{\textrm{Abs}(X)}\), by using the pre-term induction principle.
-The result then follows from lifting this result back up to the level of terms.
+Transfer the hypotheses to work on the concrete level, then show \(P\wrap{\textrm{Abs}(X)}\) by using the pre-term induction principle.
+The lemma then follows by lifting this result.
 \end{proof}
 
-Similar principles can also be produced for proof by cases and proof by induction on the size of a term.
-Being able to prove and use different induction principles also allows for proof by \emph{strong} induction.
-This is a useful principle to have, as assuming that \(x\) is fresh makes many proofs simpler and shorter --- a formalised version of Barendregt's convention.
+Similar principles are shown for case-analysis and induction on the size of a term.
+\emph{Strong induction} allows assuming that \(x\) in a binder is fresh for a given set \(S\), which makes many proofs simpler and shorter --- a formalised version of Barendregt's convention.
 
 \begin{lemma}[\ident{trm-strong-induct}]
 \label{lemma:strong-induction}
@@ -807,6 +800,7 @@ Now that the stronger result is established, the original result can be shown by
 \end{proof}
 
 Further induction principles can be produced by combining the strong induction principle with proof by cases (``strong cases'') and proof by induction on the size of a term (``strong depth induction'').
+Both follow immediately from the strong induction principle.
 
 \begin{lemma}[\ident{trm-strong-cases}]
 \label{lemma:strong-cases}
@@ -821,9 +815,6 @@ If \(M = \lambda \wrap{x:T}. A\) and \(x \notin S\), then \(P\wrap{S, M}\).
 \end{enumerate}
 Then for any \(S\) and \(M\), \(P\wrap{S, M}\).
 \end{lemma}
-\begin{proof}
-Directly from the strong induction principle.
-\end{proof}
 
 \begin{lemma}[\ident{trm-strong-depth-induct}]
 Suppose \(P\) and \(S\) are defined as above.
@@ -840,59 +831,53 @@ If \(P\wrap{S, K}\) holds for all \(K\) smaller than \(\lambda \wrap{x:T}. A\), 
 \end{enumerate}
 Then for any \(S\) and \(M\), \(P\wrap{S, M}\).
 \end{lemma}
-\begin{proof}
-By induction on the size of \(M\).
-Assume the inductive hypothesis, then note that the pre-conditions for Lemma \ref{lemma:strong-cases} can be derived from the assumptions and the hypothesis.
-The result then follows by using Lemma \ref{lemma:strong-cases}.
-\end{proof}
 
-\subsection{Typing Judgements}
+\subsection{Typing judgements}
 \label{sec:typing-judgements}
-An explicit inductively-defined typing relation is used to ensure that the type inference algorithm is correct (or at least respects the typing judgements as written).
-Additionally, it is easier to argue that inductive definitions respect certain properties (e.g. the subject reduction property), then to show that the algorithm is sound and complete with respect to the judgements, than it is to argue directly about the algorithm.
-
-The judgements presented in \S\ref{sec:type-intro} are encoded in Isabelle as follows:
+An explicit typing relation is defined to ensure type inference is correct with respect to the relation.
+Additionally, it is easier to argue that inductive definitions respect certain properties (e.g. preservation), then show that the algorithm is correct, than it is to argue directly about the algorithm.
+The judgements presented in \S\ref{sec:type-intro} are encoded in Isabelle:
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
 \ typing\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ typing{\isacharunderscore}ctx\ {\isasymRightarrow}\ {\isacharprime}a\ trm\ {\isasymRightarrow}\ type\ {\isasymRightarrow}\ bool{\isachardoublequoteclose}\  \isakeyword{where}\isanewline
 \ \ tvar{\isacharcolon}\ \ {\isachardoublequoteopen}{\isasymGamma}\ x\ {\isacharequal}\ Some\ {\isasymtau}\ {\isasymLongrightarrow}\ {\isasymGamma}\ {\isasymturnstile}\ Var\ x\ {\isacharcolon}\ {\isasymtau}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ tapp{\isacharcolon}\ \ {\isachardoublequoteopen}{\isasymlbrakk}{\isasymGamma}\ {\isasymturnstile}\ f\ {\isacharcolon}\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}{\isacharsemicolon}\ {\isasymGamma}\ {\isasymturnstile}\ x\ {\isacharcolon}\ {\isasymtau}{\isasymrbrakk}\ {\isasymLongrightarrow}\ {\isasymGamma}\ {\isasymturnstile}\ App\ f\ x\ {\isacharcolon}\ {\isasymsigma}{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ tfn{\isacharcolon}\ \ \ {\isachardoublequoteopen}{\isasymGamma}{\isacharparenleft}x\ {\isasymmapsto}\ {\isasymtau}{\isacharparenright}\ {\isasymturnstile}\ A\ {\isacharcolon}\ {\isasymsigma}\ {\isasymLongrightarrow}\ {\isasymGamma}\ {\isasymturnstile}\ Fn\ x\ {\isasymtau}\ A\ {\isacharcolon}\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ tfn{\isacharcolon}\ \ \ {\isachardoublequoteopen}{\isasymGamma}{\isacharparenleft}x\ {\isasymmapsto}\ {\isasymtau}{\isacharparenright}\ {\isasymturnstile}\ A\ {\isacharcolon}\ {\isasymsigma}\ {\isasymLongrightarrow}\ {\isasymGamma}\ {\isasymturnstile}\ Fn\ x\ {\isasymtau}\ A\ {\isacharcolon}\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-The usual eliminators then need to be proved manually, as the quotient type adds a layer of complexity that Isabelle's usual inductive-cases feature cannot currently deal with.
+The usual eliminators then need to be proved manually, as the quotient type adds complexity that Isabelle's inductive-cases command cannot currently process.
 For example,
 
 \begin{implementation}
 \isacommand{lemma}\isamarkupfalse%
 \ typing{\isacharunderscore}appE{\isacharcolon}\isanewline
 \ \ \isakeyword{assumes}\ {\isachardoublequoteopen}{\isasymGamma}\ {\isasymturnstile}\ App\ A\ B\ {\isacharcolon}\ {\isasymsigma}{\isachardoublequoteclose}\isanewline
-\ \ \isakeyword{shows}\ {\isachardoublequoteopen}{\isasymexists}{\isasymtau}{\isachardot}\ {\isacharparenleft}{\isasymGamma}\ {\isasymturnstile}\ A\ {\isacharcolon}\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}{\isacharparenright}\ {\isasymand}\ {\isacharparenleft}{\isasymGamma}\ {\isasymturnstile}\ B\ {\isacharcolon}\ {\isasymtau}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ \isakeyword{shows}\ {\isachardoublequoteopen}{\isasymexists}{\isasymtau}{\isachardot}\ {\isacharparenleft}{\isasymGamma}\ {\isasymturnstile}\ A\ {\isacharcolon}\ {\isacharparenleft}TArr\ {\isasymtau}\ {\isasymsigma}{\isacharparenright}{\isacharparenright}\ {\isasymand}\ {\isacharparenleft}{\isasymGamma}\ {\isasymturnstile}\ B\ {\isacharcolon}\ {\isasymtau}{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
 provides a mechanism for reasoning about the typing judgement of an application in reverse.
-With these eliminators, the first of several properties about the type system can be shown: weakening.
+With these eliminators, I show the first property of the type system: weakening.
 
 \begin{theorem}[\ident{typing-weaken}]
 Assume that \(\Gamma \vdash M : \tau\), and pick \(y\) such that \(y \notin \fvs(M)\).
 Then
 \[\Gamma\{y \mapsto \sigma\} \vdash M : \tau\]
-for any \(\sigma\) --- that is, weakening the typing context with any other variable derives the same type, providing that the variable is fresh.
+for any \(\sigma\) --- weakening the context with another variable \(y\) derives the same type, providing that \(y\) is fresh.
 \end{theorem}
 \begin{proof}
-By induction on the derivation of the typing induction.
-\emph{tvar} and \emph{tapp} turn out to be easy, but the presence of a binder in \emph{tfn} complicates matters.
-From assumption, we have that \(y \notin \fvs\wrap{\lambda (x:\tau). A}\), so either \(y = x\) or \(y \notin \fvs(A)\).
-In the first case, adding the \(x \mapsto \tau\) to the context simply overwrites the weakened context.
+By induction on the derivation of the typing judgement.
+\emph{tvar} and \emph{tapp} follow directly, but the presence of a binder in \emph{tfn} complicates matters.
+By assumption, note \(y \notin \fvs\wrap{\lambda (x:\tau). A}\), so either \(y = x\) or \(y \notin \fvs(A)\).
+In the first case, adding the \(x \mapsto \tau\) to the context overwrites the weakened context.
 For the second, \(y \notin \fvs(A)\) can be combined with the induction hypothesis to show the result.
 \end{proof}
 
-\subsection{Substitution and \(\beta\)-Reduction}
+\subsection{Substitution and \(\beta\)-reduction}
 \label{sec:beta-reduction}
-Most of the properties I show about the type system of the calculus require an implementation of \(\beta\)-reduction, which itself requires substitution to be defined first.
-I define a substitution relation inductively, then show that the relation is a function, so that \(\beta\)-reduction can be defined in terms of it.
-While it is possible to define substitution as a function directly, it has to be done on pre-terms, then lifted to the quotiented terms, as Isabelle's function package does not support defining functions on equivalence classes.
+Some theorems about the type system of the calculus require \(\beta\)-reduction, which itself requires substitution to be defined first.
+I define a substitution relation inductively, then show that the relation is a function, then define \(\beta\)-reduction in terms of it.
+While it is possible to define substitution as a function directly, it has to be defined on pre-terms, then lifted, as Isabelle's function package does not support defining functions on equivalence classes.
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
@@ -902,11 +887,17 @@ While it is possible to define substitution as a function directly, it has to be
 {\isacharbar}\ app{\isacharcolon}\ \ {\isachardoublequoteopen}{\isasymlbrakk}substitutes\ A\ x\ M\ A{\isacharprime}{\isacharsemicolon}\ substitutes\ B\ x\ M\ B{\isacharprime}{\isasymrbrakk}\isanewline
 \ \ \ \ \ \ {\isasymLongrightarrow}\ substitutes\ {\isacharparenleft}App\ A\ B{\isacharparenright}\ x\ M\ {\isacharparenleft}App\ A{\isacharprime}\ B{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ fn{\isacharcolon}\ \ \ {\isachardoublequoteopen}{\isasymlbrakk}x\ {\isasymnoteq}\ y{\isacharsemicolon}\ y\ {\isasymnotin}\ fvs\ M{\isacharsemicolon}\ substitutes\ A\ x\ M\ A{\isacharprime}{\isasymrbrakk}\isanewline
-\ \ \ \ \ \ substitutes\ {\isacharparenleft}Fn\ y\ T\ A{\isacharparenright}\ x\ M\ {\isacharparenleft}Fn\ y\ T\ A{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ \ \ \ \ {\isasymLongrightarrow} substitutes\ {\isacharparenleft}Fn\ y\ T\ A{\isacharparenright}\ x\ M\ {\isacharparenleft}Fn\ y\ T\ A{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-The usual eliminators follow.
-For a relation \(R\) to a be a function, it has to be both \emph{total} --- that is, for every \(a\), there is a \(b\), such that \(\wrap{a, b} \in R\) --- and \emph{single-valued}, so there is only one \(b\) for any \(a\).
+If a relation \(R\) is a function, it is both \emph{total} and \emph{single-valued}, so that \(R\) satisfies
+\[
+\forall a. \exists b. R(a, b)
+\]
+and
+\[
+\forall a, b, c. R(a, b) \wedge R(a, c) \Longrightarrow b = c
+\]
 
 \begin{lemma}[\ident{substitutes-total}]
 \label{lemma:substitution-total}
@@ -915,7 +906,7 @@ The substitution relation is total: for any term \(A\), there is an \(A'\) which
 \begin{proof}
 By strong induction on \(A\), avoiding both \(x\) and the free variables of \(M\).
 For the variable case, consider whether the variable is equal to \(x\) or not, and use either the \emph{var1} or \emph{var2} rules accordingly.
-Applications follow straightforwardly from the induction hypotheses.
+Applications follow from the induction hypotheses.
 Finally, for functions \(\lambda (y:T). B\), note that \(y \neq x\) and \(y \notin \fvs(M)\), by the strong induction hypothesis.
 Hence the \emph{fn} rule applies.
 \end{proof}
@@ -925,51 +916,34 @@ Hence the \emph{fn} rule applies.
 The substitution relation is unique: if \(B\) and \(C\) are both substitutions of \(x\) for \(M\) in \(A\), then \(B = C\).
 \end{lemma}
 \begin{proof}
-Again by strong induction on \(A\), avoiding \(x\) and \(\fvs(M)\).
-Each case can be proved by using the appropriate eliminator.
+By strong induction on \(A\), avoiding \(x\) and \(\fvs(M)\), then directly using eliminators.
 \end{proof}
 
 \begin{lemma}[\ident{substitutes-function}]
 Substitution is a function.
 \end{lemma}
 \begin{proof}
-Using Lemmas \ref{lemma:substitution-unique} and \ref{lemma:substitution-total}, substitution is a function by definition.
+Using Lemmas \ref{lemma:substitution-unique} and \ref{lemma:substitution-total}, by definition.
 \end{proof}
 
-It is possible to define a function within Isabelle that finds the unique term that a substitution results in.
-This is done using the definition description operator \(\iota\), which Isabelle calls ``THE'' --- this is like the indefinite description operator, but returns the \emph{only} such item --- \(\iota x. P(x)\) is the empty set if \(P\) represents ``\(x\) is empty'', but undefined if \(P\) is ``\(x\) is non-empty''.
-Then, a series of simplification lemmas can be used to make this definition useful, which all use this result to argue that the substitution has exactly one result.
-While substitution is clearly an executable algorithm, this definition is not exexecutable by Isabelle as there is no direct definition it can follow for it.
+Isabelle can produce a function from this result and the relation.
+This is done using the definition description operator \(\iota\), which Isabelle calls ``THE'' --- this is like the indefinite description operator, but returns the \emph{only} such item.
+Then, a series of simplification lemmas are provided to allow reasoning about the function.
+While substitution is an executable algorithm, this definition is not exexecutable as there is no direct definition.
 It may be possible to use Isabelle's code transformation with added user-defined properties to allow an extracted implementation (discussed later), but this is left as an extension.
 
 \begin{implementation}
 \isacommand{definition}\isamarkupfalse%
 \ subst\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ trm\ {\isasymRightarrow}\ {\isacharprime}a\ {\isasymRightarrow}\ {\isacharprime}a\ trm\ {\isasymRightarrow}\ {\isacharprime}a\ trm{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharbrackleft}{\isacharunderscore}\ {\isacharcolon}{\isacharcolon}{\isacharequal}\ {\isacharunderscore}{\isacharbrackright}{\isachardoublequoteclose}{\isacharparenright}\ \isakeyword{where}\isanewline
-\ \ {\isachardoublequoteopen}subst\ A\ x\ M\ {\isasymequiv}\ {\isacharparenleft}THE\ X{\isachardot}\ substitutes\ A\ x\ M\ X{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}subst\ A\ x\ M\ {\isasymequiv}\ {\isacharparenleft}THE\ X{\isachardot}\ substitutes\ A\ x\ M\ X{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-For an example of a simplification lemma for this function, consider the result of substituting \(M\) for \(x\) in the term \(x\).
-
-\begin{implementation}
-\isacommand{lemma}\isamarkupfalse%
-\ subst{\isacharunderscore}simp{\isacharunderscore}var{\isadigit{1}}{\isacharcolon}\isanewline
-\ \ \isakeyword{shows}\ {\isachardoublequoteopen}{\isacharparenleft}Var\ x{\isacharparenright}{\isacharbrackleft}x\ {\isacharcolon}{\isacharcolon}{\isacharequal}\ M{\isacharbrackright}\ {\isacharequal}\ M{\isachardoublequoteclose}\isanewline
-\isatagproof
-\isacommand{unfolding}\isamarkupfalse%
-\ subst{\isacharunderscore}def\ \isacommand{by}\isamarkupfalse%
-{\isacharparenleft}\isanewline
-\ \ rule{\isacharcomma}\isanewline
-\ \ metis\ substitutes{\isachardot}var{\isadigit{1}}{\isacharcomma}\isanewline
-\ \ metis\ substitutes{\isacharunderscore}function\ substitutes{\isachardot}var{\isadigit{1}}\isanewline
-{\isacharparenright}%
-\end{implementation}
-
-At this point, I can showcase the strength of the strong induction principle (and hence the whole nominal approach) by showing \emph{Barendregt's substitution lemma}~\cite{lambda-overview}, which produces a method of re-writing substitutions in a different order.
-It is also used to show the confluence property.
+I showcase the strength of the strong induction principle (and hence the whole nominal approach) by showing \emph{Barendregt's substitution lemma}~\cite{lambda-overview}, which allows re-writing substitutions in a different order.
+It is used to show the confluence property.
 
 \begin{lemma}[\ident{barendregt}]
 Assume that \(y \neq z\), and that \(y \notin \fvs(L)\).
-Then the following property of substitutions holds:
+Then
 \[
 M[y := N][z := L] = M[z := L][y := N[z := L]]
 \]
@@ -990,8 +964,8 @@ Therefore, the proof follows by simplification directly:
 It can be seen here that by avoiding the names, and hence the problem, the proof is much simpler and the binder case follows directly.
 \end{proof}
 
-An important step in showing the subject reduction principle is a result about the effect of substitution on typing, which is used in contracting a \(\beta\)-redex.
-This particular lemma also exercises the strong depth-induction principle, combining the ability to avoid name conflicts in the proof, and also to assume that the result holds for any term smaller than the one currently under consideration.
+I show a result about the effect of substitution on typing, which is used while contracting a \(\beta\)-redex in the proof of type-preservation.
+This lemma also exercises the strong depth-induction principle, combining avoiding name conflicts in the proof and also assuming that the result holds for any term smaller than the term currently under consideration.
 
 \begin{lemma}[\ident{typing-subst}]
 \label{lemma:typing-subst}
@@ -999,22 +973,21 @@ Assume that \(\Gamma \vdash N : \tau\), and also that \(\Gamma\{z \mapsto \tau\}
 Then \(\Gamma \vdash M[z := N] : \sigma\).
 \end{lemma}
 \begin{proof}
-By strong induction on the size of \(M\), avoiding \(z\) and the free variables of \(N\).
-As usual, the variable case follows by considering whether or not the variable is \(z\) or not, and the application case follows from the inductive hypothesis.
-For the function case, the weakening result about the type system can be used to show that \(\Gamma\{x \mapsto T\} \vdash N : \tau\).
-
+By strong induction on the size of \(M\), avoiding \(z\) and \(\fvs(N)\).
+The case of variables \(x\) follows by considering \(x = z\), and the application case follows from the inductive hypothesis.
+For binders, the weakening result about the type system can be used to show that \(\Gamma\{x \mapsto T\} \vdash N : \tau\).
 By assumption, \(\Gamma\{z \mapsto \tau\} \vdash \lambda (x:T).A : \sigma\), and hence there is a type \(\sigma'\) such that \(\sigma = T \to \sigma'\), and
 \[
 \Gamma\{z \mapsto \tau, x \mapsto T\} \vdash A : \sigma'
 \]
-Hence by the inductive hypotheses, \(\Gamma\{x \mapsto T\} \vdash A[z := N] : \sigma'\), and then
+Hence by the inductive hypotheses, \(\Gamma\{x \mapsto T\} \vdash A[z := N] : \sigma'\), then
 \[
 \Gamma \vdash \lambda (x:T). A[z := N] : \sigma
 \]
-From here the result follows by using the simplification rules for substitution.
+The result follows by simplification.
 \end{proof}
 
-I then used substitution to define single-step \(\beta\)-reduction.
+I used substitution to define single-step \(\beta\)-reduction:
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
@@ -1022,65 +995,65 @@ I then used substitution to define single-step \(\beta\)-reduction.
 \ \ beta{\isacharcolon}\ \ {\isachardoublequoteopen}{\isacharparenleft}App\ {\isacharparenleft}Fn\ x\ T\ A{\isacharparenright}\ M{\isacharparenright}\ {\isasymrightarrow}{\isasymbeta}\ {\isacharparenleft}A{\isacharbrackleft}x\ {\isacharcolon}{\isacharcolon}{\isacharequal}\ M{\isacharbrackright}{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ app{\isadigit{1}}{\isacharcolon}\ \ {\isachardoublequoteopen}A\ {\isasymrightarrow}{\isasymbeta}\ A{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}App\ A\ B{\isacharparenright}\ {\isasymrightarrow}{\isasymbeta}\ {\isacharparenleft}App\ A{\isacharprime}\ B{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ app{\isadigit{2}}{\isacharcolon}\ \ {\isachardoublequoteopen}B\ {\isasymrightarrow}{\isasymbeta}\ B{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}App\ A\ B{\isacharparenright}\ {\isasymrightarrow}{\isasymbeta}\ {\isacharparenleft}App\ A\ B{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ fn{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}A\ {\isasymrightarrow}{\isasymbeta}\ A{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Fn\ x\ T\ A{\isacharparenright}\ {\isasymrightarrow}{\isasymbeta}\ {\isacharparenleft}Fn\ x\ T\ A{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ fn{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}A\ {\isasymrightarrow}{\isasymbeta}\ A{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Fn\ x\ T\ A{\isacharparenright}\ {\isasymrightarrow}{\isasymbeta}\ {\isacharparenleft}Fn\ x\ T\ A{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
-I can now show that types are preserved under single-step reduction, another step towards the subject reduction property.
+I show that types are preserved under single-step reduction, aiming towards the subject reduction property.
+
 \begin{lemma}[\ident{preservation'}]
 \label{lemma:preservation'}
-Assume that \(\Gamma \vdash M : \tau\), and that \(M\) now reduces in a single step to \(M'\).
-\(M'\) retains its type, so \(\Gamma \vdash M' : \tau\).
+Assume that \(\Gamma \vdash M : \tau\), and that \(M \to_\beta M'\).
+Then \(\Gamma \vdash M' : \tau\).
 \end{lemma}
 \begin{proof}
-Proof proceeds by induction on the derivation of \(\Gamma \vdash M : \tau\).
-There are no possible beta-reductions for variables, and only one for functions, so these cases follow easily.
-However, there are three possible ways an application can reduce: the left-hand side might reduce, the right-hand side might reduce, or the application may be a redex and reduce by substitution.
-By considering these three cases and using the inductive hypotheses (and Lemma \ref{lemma:typing-subst} for the redex case), the result follows immediately in every case.
+Induction on the derivation of \(\Gamma \vdash M : \tau\).
+There are no possible beta-reductions for variables, and only one for functions.
+However, there are three possible ways an application can reduce: the left-hand case, the right-hand case, or the redex case.
+By considering these three cases and using the inductive hypotheses (Lemma \ref{lemma:typing-subst} for the redex case), the result follows immediately in every case.
 \end{proof}
 
-\subsection{Normal Forms and the Progress Property}
-The normal form predicate on terms may be defined inductively (again), which can then be used to show the progress property, a safety theorem of the type system originally presented by Milner~\cite{milner}, which captures the idea that well-typed terms cannot get ``stuck'': they are either already in a normal form, or can be reduced further.
+\subsection{Normal forms and the progress property}
+I define a normal-form predicate, then use it to show the progress property, a safety theorem of the type system originally presented by Milner~\cite{milner}, which captures the idea that well-typed terms cannot get ``stuck'': they are either normalised, or may be reduced further.
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
 \ NF\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ trm\ {\isasymRightarrow}\ bool{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
 \ \ var{\isacharcolon}\ {\isachardoublequoteopen}NF\ {\isacharparenleft}Var\ x{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ app{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}A\ {\isasymnoteq}\ Fn\ x\ T\ A{\isacharprime}{\isacharsemicolon}\ NF\ A{\isacharsemicolon}\ NF\ B{\isasymrbrakk}\ {\isasymLongrightarrow}\ NF\ {\isacharparenleft}App\ A\ B{\isacharparenright}{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ fn{\isacharcolon}\ {\isachardoublequoteopen}NF\ A\ {\isasymLongrightarrow}\ NF\ {\isacharparenleft}Fn\ x\ T\ A{\isacharparenright}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ fn{\isacharcolon}\ {\isachardoublequoteopen}NF\ A\ {\isasymLongrightarrow}\ NF\ {\isacharparenleft}Fn\ x\ T\ A{\isacharparenright}{\isachardoublequoteclose}
 \end{implementation}
 
 \begin{theorem}[\ident{progress}]
 \label{theorem:progress}
-Assume that \(M\) is well-typed.
-Then \(M\) is either in normal form, or there is an \(M'\) such that \(M\) reduces to \(M'\) in one step.
+Assume \(\Gamma \vdash M : \tau\).
+Then \(M\) is either in normal form, or there is an \(M'\) such that \(M \to_\beta M'\).
 \end{theorem}
 \begin{proof}
 By induction on \(M\).
-The variable case is trivial, and in the binder case by hypothesis either the bound term is in normal form, or it can reduce one further --- in which case either \(M\) is in normal form, or it can reduce further.
-
+Variables are always in normal form, and the binder case follows directly from the induction hypothesis.
 In the application case, if either of the application's subterms can reduce, then the application can reduce.
 Alternatively, if the application forms a redex, it can also reduce.
-However, if none of these conditions hold, then it is in normal form, so in any event the term is in normal form, or can reduce further.
+However, if none of these conditions hold, then it is in normal form, so the result holds.
 \end{proof}
 
-\subsection{Many-Step Reduction}
-Many-step reduction is simply the reflexive, transitive closure of single-step reduction.
+\subsection{Many-step reduction}
+Many-step reduction is the reflexive, transitive closure of single-step reduction.
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
 \ beta{\isacharunderscore}reduces\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ trm\ {\isasymRightarrow}\ {\isacharprime}a\ trm\ {\isasymRightarrow}\ bool{\isachardoublequoteclose}\ \isakeyword{where}\isanewline
 \ \ reflexive{\isacharcolon}\ \ {\isachardoublequoteopen}M\ {\isasymrightarrow}{\isasymbeta}\isactrlsup {\isacharasterisk}\ M{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ transitive{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}M\ {\isasymrightarrow}{\isasymbeta}\isactrlsup {\isacharasterisk}\ M{\isacharprime}{\isacharsemicolon}\ M{\isacharprime}\ {\isasymrightarrow}{\isasymbeta}\ M{\isacharprime}{\isacharprime}{\isasymrbrakk}\ {\isasymLongrightarrow}\ M\ {\isasymrightarrow}{\isasymbeta}\isactrlsup {\isacharasterisk}\ M{\isacharprime}{\isacharprime}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ transitive{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}M\ {\isasymrightarrow}{\isasymbeta}\isactrlsup {\isacharasterisk}\ M{\isacharprime}{\isacharsemicolon}\ M{\isacharprime}\ {\isasymrightarrow}{\isasymbeta}\ M{\isacharprime}{\isacharprime}{\isasymrbrakk}\ {\isasymLongrightarrow}\ M\ {\isasymrightarrow}{\isasymbeta}\isactrlsup {\isacharasterisk}\ M{\isacharprime}{\isacharprime}{\isachardoublequoteclose}
 \end{implementation}
 
-Now I can prove the subject-reduction and safety properties for the type system, using Lemma \ref{lemma:preservation'} and the progress property shown in Theorem \ref{theorem:progress}.
+I prove the subject-reduction and safety properties, using Lemma \ref{lemma:preservation'} and the progress property shown in Theorem \ref{theorem:progress}.
 
 \begin{theorem}[\ident{preservation}]
-Assume that \(M\) has type \(\tau\) in a context \(\Gamma\), and that \(M\) reduces to \(M'\) in an arbitrary number of steps.
-Then \(M'\) also has this type under the same context.
+Assume that \(\Gamma \vdash M : \tau\), and that \(M \to_\beta^* M'\).
+Then \(\Gamma \vdash M' : \tau\).
 \end{theorem}
 \begin{proof}
-By induction on the many-step reduction of \(M\) to \(M'\).
+By induction on the reduction \(M \to_\beta^* M'\).
 The reflexive case follows immediately, and the transitive case from the induction hypothesis and Lemma \ref{lemma:preservation'}.
 \end{proof}
 
@@ -1098,29 +1071,25 @@ Then apply the progress property.
 I am now finished with the properties I stated in my project proposal.
 What remains is to show that the inference algorithm is correct with respect to the typing judgements, and hence that the type inference algorithm also has these properties.
 
-\subsection{Inference Correctness}
+\subsection{Inference correctness}
 \label{sec:correctness}
 To show that the inference algorithm is correct, it has to be both \emph{sound} and \emph{complete}.
 The algorithm is sound if for any inference it makes, the same judgement can be made in the typing rules.
 Conversely, the algorithm is complete if for any judgement that can be made through the typing rules, it can also infer the same type.
 
 \begin{lemma}[\ident{infer-sound}]
-The algorithm is sound.
 Assume that \(\infertype\wrap{\Gamma, M} = \tau\).
 Then \(\Gamma \vdash M : \tau\).
 \end{lemma}
 \begin{proof}
 By induction on \(M\).
-In the variable case, \(M\) has an inferred type only if the variable is present in the domain of \(\Gamma\).
-But then the typing rule for variables can also deduce this type.
-For applications, it follows that the left subterm must have an inferred arrow type, and the right-hand-side a matching type for the arrow.
-By the induction hypothesis, these can also be judged using the typing rules, and hence the application rule can be used to produce the result.
-Finally, for the binder case, the arrow type can only be inferred if the bound sub-term has an inferred type under the augmented context.
-Then by the induction hypothesis and the function rule in the typing judgements, the result follows.
+In each case, consider the pre-conditions required for the algorithm to produce \(\tau\), then use these to argue that \(\Gamma \vdash M : \tau\).
+For example, if \(M = x\), \(M\) has an inferred type iff \(x \in \textrm{dom}(\Gamma)\).
+But then the typing rule for variables can also deduce this type, so the result holds for variables.
+Other cases are similar.
 \end{proof}
 
 \begin{lemma}[\ident{infer-complete}]
-The algorithm is complete.
 Assume that \(\Gamma \vdash M : \tau\).
 Then \(\infertype\wrap{\Gamma, M} = \tau\).
 \end{lemma}
@@ -1137,9 +1106,9 @@ Since it is sound and complete, the algorithm is correct, at least by reference 
 \end{proof}
 
 \section{Extensions}
-\subsection{Unit and Pair Terms}
+\subsection{Unit and pair terms}
 \label{sec:pairs}
-One extension I added to the project was unit and pair terms, with suitable extensions to the type system.
+I added the unit value and pairs to the project, with suitable extensions to the type system.
 To do this, I extended the term datatype to include a unit value, a pair constructor, and projection functions for either side of a pair.
 
 \begin{implementation}
@@ -1151,10 +1120,10 @@ To do this, I extended the term datatype to include a unit value, a pair constru
 {\isacharbar}\ PFn\ {\isacharprime}a\ type\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ PPair\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ PFst\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ PSnd\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ PSnd\ {\isachardoublequoteopen}{\isacharprime}a\ ptrm{\isachardoublequoteclose}
 \end{implementation}
 
-The definition of types also had to be updated to allow typing these new terms.
+The definition of types was updated to include unit and pair types.
 
 \begin{implementation}
 \isacommand{datatype}\isamarkupfalse%
@@ -1162,26 +1131,25 @@ The definition of types also had to be updated to allow typing these new terms.
 \ \ TUnit\isanewline
 {\isacharbar}\ TVar\ tvar\isanewline
 {\isacharbar}\ TArr\ type\ type\isanewline
-{\isacharbar}\ TPair\ type\ type\isanewline
+{\isacharbar}\ TPair\ type\ type
 \end{implementation}
 
-Having done this, the main task for this extension was updating all the lemmas and definitions to include the new constructions.
-In general this was easier than writing the project over again as the semantics for the new constructions are simpler than e.g. application or binder terms.
-Perhaps the most interesting adaptation was the new typing rules, which notably added the constraint that a projection function was only well-typed if it was applied to a term that was a pair type.
+The main task for this extension was updating all the lemmas and definitions to include the new constructions.
+In general this was easier than writing the project over again as the semantics for the new constructions are simpler than the application and binder terms.
+The most interesting adaptation was new typing rules, which notably required that a projection function was only well-typed if applied to a term that was a pair type.
 
-One major problem with the combination of this extension and the approach I took with the project as a whole was the number of lemmas that had to be written to determine that any datatype constructor was not equal to a distinct datatype constructor: for example, no pair is equal to a binder.
+One major problem this extension highlighted with the approach I took with the project was the trivia that had to be written to determine that any datatype constructor was not equal to a distinct datatype constructor: for example, no pair is equal to a binder.
 
 \subsection{Confluence}
 \label{sec:confluence}
-One additional property of the calculus I showed was \emph{confluence}.
-The confluence property for a reduction system (such as this one) states that ``if \(A\) reduces in many steps to \(B\) and also to \(C\) (possibly by differing paths), then there is a \(D\) such that \(B\) and \(C\) both reduce in many steps to \(D\)''.
+I showed the \emph{confluence} property.
+The confluence property for a reduction system such as this one states that ``if \(A\) reduces in many steps to \(B\) and also to \(C\), then there is a \(D\) such that \(B\) and \(C\) both reduce in many steps to \(D\)''.
+There are several techniques to show this property.
+I took the approach taken by Takahashi~\cite{Takahashi} in his work on the \(\lambda\)-calculus which defines two new reduction relations, parallel reduction and complete development.
+I followed Pollack's overview~\cite{pollack} of the technique for a simple untyped calculus and extended it to my calculus.
 
-There are several techniques to showing this property for a reduction system.
-I took the approach taken by Takahashi~\cite{Takahashi} in his work on the \(\lambda\)-calculus of defining two new inductive definitions, parallel reduction and complete development, to show that \(\beta\)-reduction of terms has the confluence property.
-I followed Randy Pollack's overview~\cite{pollack} of the technique and implemented the ideas (for an untyped calculus) in a typed calculus, extended as seen above.
-
-First, I define the relation for parallel reduction (written \(A \gg B\)).
-Intuitively, this relation is similar to \(\beta\)-reduction, but at any step where recursive reductions (like reducing the left or right subterm of an application) as well as structural reductions (like contracting a redex) are possible, it performs both at once.
+First, I define parallel reduction (written \(A \gg B\)).
+Intuitively, this relation is \(\beta\)-reduction, but at any step where reductions on subterms as well as the main term is possible, it performs all at once.
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
@@ -1194,15 +1162,14 @@ Intuitively, this relation is similar to \(\beta\)-reduction, but at any step wh
 {\isacharbar}\ fst{\isadigit{1}}{\isacharcolon}\ {\isachardoublequoteopen}P\ {\isachargreater}{\isachargreater}\ P{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Fst\ P{\isacharparenright}\ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Fst\ P{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ fst{\isadigit{2}}{\isacharcolon}\ {\isachardoublequoteopen}A\ {\isachargreater}{\isachargreater}\ A{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Fst\ {\isacharparenleft}Pair\ A\ B{\isacharparenright}{\isacharparenright}\ {\isachargreater}{\isachargreater}\ A{\isacharprime}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ snd{\isadigit{1}}{\isacharcolon}\ {\isachardoublequoteopen}P\ {\isachargreater}{\isachargreater}\ P{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Snd\ P{\isacharparenright}\ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Snd\ P{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ snd{\isadigit{2}}{\isacharcolon}\ {\isachardoublequoteopen}B\ {\isachargreater}{\isachargreater}\ B{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Snd\ {\isacharparenleft}Pair\ A\ B{\isacharparenright}{\isacharparenright}\ {\isachargreater}{\isachargreater}\ B{\isacharprime}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ snd{\isadigit{2}}{\isacharcolon}\ {\isachardoublequoteopen}B\ {\isachargreater}{\isachargreater}\ B{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Snd\ {\isacharparenleft}Pair\ A\ B{\isacharparenright}{\isacharparenright}\ {\isachargreater}{\isachargreater}\ B{\isacharprime}{\isachardoublequoteclose}
 \end{implementation}
 
-Where the relation was under-specified in the literature (for instance, Pollack's parallel reduction relation does not include rules for evaluating projection functions), I kept with this spirit and reduce the projected term as it is structurally removed from the pair --- note \emph{fst2} and \emph{snd2}.
+Where the relation needed extending, I kept with this intuition and reduce sub-terms in rules wherever possible --- note \emph{fst2} and \emph{snd2}.
 
 Next, the complete development relation (written \(A \ggg B\)) is similar to parallel reduction, but written in such a way as to remove any ambiguity as to which rule applies.
-For instance, a term \(A\) might be reducible under parallel reduction by some rule to \(A'\).
-However, for any given rule it might reduce by, it can also reduce by \emph{refl} to itself.
-Complete developments remove this ambiguity.
+Consider that \(A \gg A'\), by some rule.
+However, it can also reduce by \emph{refl} to itself: complete developments remove this ambiguity.
 
 \begin{implementation}
 \isacommand{inductive}\isamarkupfalse%
@@ -1217,10 +1184,10 @@ Complete developments remove this ambiguity.
 {\isacharbar}\ fst{\isadigit{1}}{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}P\ {\isachargreater}{\isachargreater}{\isachargreater}\ P{\isacharprime}{\isacharsemicolon}\ {\isacharparenleft}{\isasymAnd}A\ B{\isachardot}\ P\ {\isasymnoteq}\ Pair\ A\ B{\isacharparenright}{\isasymrbrakk}\ {\isasymLongrightarrow}\ {\isacharparenleft}Fst\ P{\isacharparenright}\ {\isachargreater}{\isachargreater}{\isachargreater}\ {\isacharparenleft}Fst\ P{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ fst{\isadigit{2}}{\isacharcolon}\ {\isachardoublequoteopen}A\ {\isachargreater}{\isachargreater}{\isachargreater}\ A{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Fst\ {\isacharparenleft}Pair\ A\ B{\isacharparenright}{\isacharparenright}\ {\isachargreater}{\isachargreater}{\isachargreater}\ A{\isacharprime}{\isachardoublequoteclose}\isanewline
 {\isacharbar}\ snd{\isadigit{1}}{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}P\ {\isachargreater}{\isachargreater}{\isachargreater}\ P{\isacharprime}{\isacharsemicolon}\ {\isacharparenleft}{\isasymAnd}A\ B{\isachardot}\ P\ {\isasymnoteq}\ Pair\ A\ B{\isacharparenright}{\isasymrbrakk}\ {\isasymLongrightarrow}\ {\isacharparenleft}Snd\ P{\isacharparenright}\ {\isachargreater}{\isachargreater}{\isachargreater}\ {\isacharparenleft}Snd\ P{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
-{\isacharbar}\ snd{\isadigit{2}}{\isacharcolon}\ {\isachardoublequoteopen}B\ {\isachargreater}{\isachargreater}{\isachargreater}\ B{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Snd\ {\isacharparenleft}Pair\ A\ B{\isacharparenright}{\isacharparenright}\ {\isachargreater}{\isachargreater}{\isachargreater}\ B{\isacharprime}{\isachardoublequoteclose}\isanewline
+{\isacharbar}\ snd{\isadigit{2}}{\isacharcolon}\ {\isachardoublequoteopen}B\ {\isachargreater}{\isachargreater}{\isachargreater}\ B{\isacharprime}\ {\isasymLongrightarrow}\ {\isacharparenleft}Snd\ {\isacharparenleft}Pair\ A\ B{\isacharparenright}{\isacharparenright}\ {\isachargreater}{\isachargreater}{\isachargreater}\ B{\isacharprime}{\isachardoublequoteclose}
 \end{implementation}
 
-It is always the case that a term can be reduced by the complete development relation; this is obvious for parallel reduction (by \emph{refl}), but can also be shown for a complete development.
+It is always the case that a term can be reduced by the complete development relation; this holds by \emph{refl} for parallel reduction, but is also true for complete developments.
 
 \begin{lemma}[\ident{complete-development-exists}]
 For any term \(A\), there is an \(A'\) such that \(A \ggg A'\).
@@ -1230,7 +1197,7 @@ By induction on the structure of \(A\).
 In each case, choose a rule based on the structure, then obtain \(A'\) by means of that rule and the induction hypothesis.
 \end{proof}
 
-To progress towards the confluence property, I need to show the \emph{diamond property} for parallel reduction, but to get there an auxiliary lemma is required about decomposing a complete development into two parallel reductions.
+To show the confluence property, I need the \emph{diamond property} for parallel reduction, an auxiliary lemma is required first about decomposing a complete development into two parallel reductions.
 
 \begin{lemma}[\ident{complete-development-triangle}]
 Suppose \(A \ggg D\) and \(A \gg B\).
@@ -1238,24 +1205,24 @@ Then \(B \gg D\).
 \end{lemma}
 \begin{proof}
 By induction on the derivation of \(A \ggg D\).
-For each case, consider how \(A\) (\(A\) and \(D\) are now known from the case) might have reduced under parallel reduction to \(B\), obtain a value for \(B\), then show that \(B \gg D\) by any relevant rule.
+For each case, consider how \(A\) might have reduced under parallel reduction to \(B\), obtain a value for \(B\), then show that \(B \gg D\) by any relevant rule.
 \end{proof}
 
-It can now be shown that parallel reduction has the diamond property: that reduction that goes in different directions can always be re-united by another step.
+It can now be shown that parallel reduction has the diamond property: that diverging reductions can always be re-united by another step.
 
 \begin{lemma}[\ident{parallel-reduction-diamond}]
 Assume that \(A \gg B\) and \(A \gg C\).
 Then there is a \(D\) such that \(B \gg D\) and \(C \gg D\).
 \end{lemma}
 \begin{proof}
-Obtain a \(D\) such that \(A \ggg D\), since such a \(D\) always exists.
+Obtain a \(D\) such that \(A \ggg D\), since this always exists.
 Hence by the previous lemma, both \(B \gg D\) and \(C \gg D\).
 Thus the diamond property holds for \(\wrap{\gg}\).
 \end{proof}
 
-Finally, define the reflexive-transitive closure of \(\wrap{\gg}\), \(\wrap{\gg^*}\) as usual.
-It can be shown by a diagram chase that \(\wrap{\gg^*}\) has the diamond property, as seen in Figure \ref{fig:diagram-chase}, so all that remains is to show that the closure of parallel reduction is equivalent to the closure of \(\beta\)-reduction.
-This is done by a two-way conversion: converting single-step parallel reduction to many-step \(\beta\)-reduction, and converting \(\beta\)-reduction to single-step parallel reduction.
+I define \(\wrap{\gg^*}\) as the reflexive-transitive closure of \(\wrap{\gg}\).
+It is shown by a diagram chase (Figure \ref{fig:diagram-chase}) that \(\wrap{\gg^*}\) has the diamond property, so what remains is to show that \(\wrap{\gg^*} = \wrap{\to_\beta^*}\).
+This is done by exhibiting a bidirectional conversion:
 
 \begin{figure}
 \[
@@ -1278,7 +1245,7 @@ If \(A \gg B\), then \(A \to_\beta^* B\).
 \end{lemma}
 \begin{proof}
 By induction on the derivation of \(A \gg B\).
-Each case can be converted straightforwardly to a chain of zero or more \(\beta\)-reductions.
+Each case can be converted straightforwardly to zero or more \(\beta\)-reductions.
 \end{proof}
 
 \begin{lemma}[\ident{beta-reduction-is-parallel-reduction}]
@@ -1286,7 +1253,7 @@ If \(A \to_\beta B\), then \(A \gg B\).
 \end{lemma}
 \begin{proof}
 By induction on the derivation of the \(\beta\)-reduction.
-Each case forms (some part of) the corresponding parallel reduction rule, and the \emph{refl} rule of parallel reduction allows reducing subterms that the \(\beta\)-reduction does not reduce.
+Each case forms part of the corresponding parallel reduction, and \emph{refl} allows reducing subterms that the \(\beta\)-reduction does not reduce.
 \end{proof}
 
 \begin{lemma}[\ident{parallel-reduction-beta-reduces-equivalent}]
@@ -1297,7 +1264,7 @@ Each case forms (some part of) the corresponding parallel reduction rule, and th
 Directly from the previous pair of lemmas.
 \end{proof}
 
-Finally, the confluence property follows from this and the diamond property of the closure of parallel reduction.
+The confluence property follows from this and the diamond property of the closure of parallel reduction.
 
 \begin{theorem}[\ident{confluence}]
 Suppose \(A \to_\beta^* B\) and \(A \to_\beta^* C\).
