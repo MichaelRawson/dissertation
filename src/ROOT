@@ -1,0 +1,9 @@
+session "Name_Carrying_Type_Inference" = "HOL" +
+  options [document = pdf, document_output = "output"]
+  theories
+    Fresh
+    Permutation
+    PreSimplyTyped
+    SimplyTyped
+  document_files
+    "root.tex"
