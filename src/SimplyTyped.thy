@@ -308,25 +308,28 @@ lemma trm_simp:
     "Pair A B = Pair C D \<Longrightarrow> B = D"
     "Fst P = Fst Q \<Longrightarrow> P = Q"
     "Snd P = Snd Q \<Longrightarrow> P = Q"
-  apply (transfer, insert ptrm.inject varE, fastforce)[]
-  apply (transfer, insert ptrm.inject appE, auto)[]
-  apply (transfer, insert ptrm.inject appE, auto)[]
-  defer
-  apply (transfer, insert pairE ptrm.inject, auto)[]
-  apply (transfer, insert pairE ptrm.inject, auto)[]
-  apply (transfer, insert fstE ptrm.inject, auto)[]
-  apply (transfer, insert sndE ptrm.inject, auto)[]
-proof(transfer')
-  fix x y :: 'a and T S :: type and A B :: "'a ptrm"
-  assume *: "PFn x T A \<approx> PFn y S B"
-  thus "x = y \<and> T = S \<and> A \<approx> B \<or> x \<noteq> y \<and> T = S \<and> x \<notin> ptrm_fvs B \<and> A \<approx> [x \<leftrightarrow> y] \<bullet> B"
-  proof(induction rule: fnE[where x=x and T=T and A=A and Y="PFn y S B"], metis *)
-    case (2 C)
-      thus ?case by simp
-    next
-    case (3 z C)
-      thus ?case by simp
-    next
+proof -
+  show "Var x = Var y \<Longrightarrow> x = y" by (transfer, insert ptrm.inject varE, fastforce)
+  show "App A B = App C D \<Longrightarrow> A = C" by (transfer, insert ptrm.inject appE, auto)
+  show "App A B = App C D \<Longrightarrow> B = D" by (transfer, insert ptrm.inject appE, auto)
+  show "Pair A B = Pair C D \<Longrightarrow> A = C" by (transfer, insert ptrm.inject pairE, auto)
+  show "Pair A B = Pair C D \<Longrightarrow> B = D" by (transfer, insert ptrm.inject pairE, auto)
+  show "Fst P = Fst Q \<Longrightarrow> P = Q" by (transfer, insert ptrm.inject fstE, auto)
+  show "Snd P = Snd Q \<Longrightarrow> P = Q" by (transfer, insert ptrm.inject sndE, auto)
+  show "Fn x T A = Fn y S B \<Longrightarrow>
+      (x = y \<and> T = S \<and> A = B) \<or> (x \<noteq> y \<and> T = S \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B)"
+  proof(transfer')
+    fix x y :: 'a and T S :: type and A B :: "'a ptrm"
+    assume *: "PFn x T A \<approx> PFn y S B"
+    thus "x = y \<and> T = S \<and> A \<approx> B \<or> x \<noteq> y \<and> T = S \<and> x \<notin> ptrm_fvs B \<and> A \<approx> [x \<leftrightarrow> y] \<bullet> B"
+    proof(induction rule: fnE[where x=x and T=T and A=A and Y="PFn y S B"], metis *)
+      case (2 C)
+        thus ?case by simp
+      next
+      case (3 z C)
+        thus ?case by simp
+      next
+    qed
   qed
 qed
 
@@ -677,14 +680,7 @@ done
 lemma typing_fnE:
   assumes "\<Gamma> \<turnstile> Fn x T A : \<theta>"
   shows "\<exists>\<sigma>. \<theta> = (TArr T \<sigma>) \<and> (\<Gamma>(x \<mapsto> T) \<turnstile> A : \<sigma>)"
-using assms
-  apply cases
-  apply (metis unit_not_fn)
-  apply (metis var_not_fn)
-  apply (metis app_not_fn)
-  defer
-  apply (metis fn_not_pair, metis fn_not_fst, metis fn_not_snd)
-proof -
+using assms proof(cases)
   case (tfn y S B \<sigma>)
     from this consider
       "x = y \<and> T = S \<and> A = B" | "x \<noteq> y \<and> T = S \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
@@ -698,47 +694,62 @@ proof -
       next
     qed
   next
-qed
+qed (
+  metis unit_not_fn,
+  metis var_not_fn,
+  metis app_not_fn,
+  metis fn_not_pair,
+  metis fn_not_fst,
+  metis fn_not_snd
+)
 
 lemma typing_pairE:
   assumes "\<Gamma> \<turnstile> Pair A B : \<theta>"
   shows "\<exists>\<tau> \<sigma>. \<theta> = (TPair \<tau> \<sigma>) \<and> (\<Gamma> \<turnstile> A : \<tau>) \<and> (\<Gamma> \<turnstile> B : \<sigma>)"
-using assms
-  apply cases
-  apply (metis unit_not_pair, metis var_not_pair, metis app_not_pair, metis fn_not_pair)
-  defer
-  apply (metis pair_not_fst, metis pair_not_snd)
-proof -
+using assms proof(cases)
   case (tpair A \<tau> B \<sigma>)
     thus ?thesis using trm_simp(5) trm_simp(6) by blast
   next
-qed
+qed (
+  metis unit_not_pair,
+  metis var_not_pair,
+  metis app_not_pair,
+  metis fn_not_pair,
+  metis pair_not_fst,
+  metis pair_not_snd
+)
 
 lemma typing_fstE:
   assumes "\<Gamma> \<turnstile> Fst P : \<tau>"
   shows "\<exists>\<sigma>. (\<Gamma> \<turnstile> P : (TPair \<tau> \<sigma>))"
-using assms
-  apply cases
-  apply (metis unit_not_fst, metis var_not_fst, metis app_not_fst, metis fn_not_fst, metis pair_not_fst)
-  defer
-  apply (metis fst_not_snd)
-proof -
+using assms proof(cases)
   case (tfst P \<sigma>)
     thus ?thesis using trm_simp(7) by blast
   next
-qed
+qed (
+  metis unit_not_fst,
+  metis var_not_fst,
+  metis app_not_fst,
+  metis fn_not_fst,
+  metis pair_not_fst,
+  metis fst_not_snd
+)
 
 lemma typing_sndE:
   assumes "\<Gamma> \<turnstile> Snd P : \<sigma>"
   shows "\<exists>\<tau>. (\<Gamma> \<turnstile> P : (TPair \<tau> \<sigma>))"
-using assms
-  apply cases
-  apply (metis unit_not_snd, metis var_not_snd, metis app_not_snd, metis fn_not_snd, metis pair_not_snd, metis fst_not_snd)
-proof -
+using assms proof(cases)
   case (tsnd P \<sigma>)
     thus ?thesis using trm_simp(8) by blast
   next
-qed
+qed (
+  metis unit_not_snd,
+  metis var_not_snd,
+  metis app_not_snd,
+  metis fn_not_snd,
+  metis pair_not_snd,
+  metis fst_not_snd
+)
 
 theorem typing_weaken:
   assumes "\<Gamma> \<turnstile> M : \<tau>" "y \<notin> fvs M"
@@ -1046,15 +1057,11 @@ qed
 lemma infer_complete:
   assumes "\<Gamma> \<turnstile> M : \<tau>"
   shows "infer \<Gamma> M = Some \<tau>"
-using assms
-  apply induction
-  defer 4
-  apply (auto simp add: infer_simp)[6]
-proof -
+using assms proof(induction)
   case (tfn \<Gamma> x \<tau> A \<sigma>)
     thus ?case by (simp add: infer_simp(4) tfn.IH)
   next
-qed
+qed (auto simp add: infer_simp)
 
 theorem infer_valid:
   shows "(\<Gamma> \<turnstile> M : \<tau>) = (infer \<Gamma> M = Some \<tau>)"
@@ -1178,13 +1185,7 @@ inductive_cases substitutes_fnE': "substitutes (Fn y T A) x M X"
 lemma substitutes_fnE:
   assumes "substitutes (Fn y T A) x M X" "y \<noteq> x" "y \<notin> fvs M"
   shows "\<exists>A'. substitutes A x M A' \<and> X = Fn y T A'"
-using assms
-  apply (induction rule: substitutes_fnE'[where y=y and T=T and A=A and x=x and M=M and X=X])
-  apply (metis assms(1))
-  apply (metis unit_not_fn, metis var_not_fn, metis var_not_fn, metis app_not_fn)
-  defer
-  apply (metis fn_not_pair, metis fn_not_fst, metis fn_not_snd)
-proof -
+using assms proof(induction rule: substitutes_fnE'[where y=y and T=T and A=A and x=x and M=M and X=X])
   case (6 z B B' S)
     consider "y = z \<and> T = S \<and> A = B" | "y \<noteq> z \<and> T = S \<and> y \<notin> fvs B \<and> A = [y \<leftrightarrow> z] \<cdot> B"
       using `Fn y T A = Fn z S B` trm_simp(4) by metis
@@ -1216,50 +1217,73 @@ proof -
       next
     qed      
   next
-qed
+qed (
+  metis assms(1),
+  metis unit_not_fn,
+  metis var_not_fn,
+  metis var_not_fn,
+  metis app_not_fn,
+  metis fn_not_pair,
+  metis fn_not_fst,
+  metis fn_not_snd
+)
 
 inductive_cases substitutes_pairE': "substitutes (Pair A B) x M X"
 lemma substitutes_pairE:
   assumes "substitutes (Pair A B) x M X"
   shows "\<exists>A' B'. substitutes A x M A' \<and> substitutes B x M B' \<and> X = Pair A' B'"
-  apply (cases rule: substitutes_pairE'[where A=A and B=B and x=x and M=M and X=X])
-  apply (metis assms)
-  apply (metis unit_not_pair, metis var_not_pair, metis var_not_pair, metis app_not_pair, metis fn_not_pair)
-  defer
-  apply (metis pair_not_fst, metis pair_not_snd)
-proof -
+proof(cases rule: substitutes_pairE'[where A=A and B=B and x=x and M=M and X=X])
   case (7 A A' B B')
     thus ?thesis using trm_simp(5) trm_simp(6) by blast
   next
-qed
+qed (
+  metis assms,
+  metis unit_not_pair,
+  metis var_not_pair,
+  metis var_not_pair,
+  metis app_not_pair,
+  metis fn_not_pair,
+  metis pair_not_fst,
+  metis pair_not_snd
+)
 
 inductive_cases substitutes_fstE': "substitutes (Fst P) x M X"
 lemma substitutes_fstE:
   assumes "substitutes (Fst P) x M X"
   shows "\<exists>P'. substitutes P x M P' \<and> X = Fst P'"
-  apply (cases rule: substitutes_fstE'[where P=P and x=x and M=M and X=X])
-  apply (metis assms)
-  apply (metis unit_not_fst, metis var_not_fst, metis var_not_fst, metis app_not_fst, metis fn_not_fst, metis pair_not_fst)
-  defer
-  apply (metis fst_not_snd)
-proof -
+proof(cases rule: substitutes_fstE'[where P=P and x=x and M=M and X=X])
   case (8 P P')
     thus ?thesis using trm_simp(7) by blast
   next
-qed
+qed (
+  metis assms,
+  metis unit_not_fst,
+  metis var_not_fst,
+  metis var_not_fst,
+  metis app_not_fst,
+  metis fn_not_fst,
+  metis pair_not_fst,
+  metis fst_not_snd
+)
 
 inductive_cases substitutes_sndE': "substitutes (Snd P) x M X"
 lemma substitutes_sndE:
   assumes "substitutes (Snd P) x M X"
   shows "\<exists>P'. substitutes P x M P' \<and> X = Snd P'"
-  apply (cases rule: substitutes_sndE'[where P=P and x=x and M=M and X=X])
-  apply (metis assms)
-  apply (metis unit_not_snd, metis var_not_snd, metis var_not_snd, metis app_not_snd, metis fn_not_snd, metis pair_not_snd, metis fst_not_snd)
-proof -
+proof(cases rule: substitutes_sndE'[where P=P and x=x and M=M and X=X])
   case (9 P P')
     thus ?thesis using trm_simp(8) by blast
   next
-qed
+qed (
+  metis assms,
+  metis unit_not_snd,
+  metis var_not_snd,
+  metis var_not_snd,
+  metis app_not_snd,
+  metis fn_not_snd,
+  metis pair_not_snd,
+  metis fst_not_snd
+)
 
 lemma substitutes_total:
   shows "\<exists>X. substitutes A x M X"
@@ -1774,16 +1798,11 @@ using assms by(
 lemma beta_reduction_left_fnE:
   assumes "(Fn x T A) \<rightarrow>\<beta> M'"
   shows "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> M' = (Fn x T A')"
-using assms
-  apply cases
-  apply (metis app_not_fn, metis app_not_fn, metis app_not_fn)
-  defer
-  apply (auto simp add: fn_not_pair fn_not_fst fn_not_snd)
-proof -
+using assms proof(cases)
   case (fn B B' y S)
     consider "x = y \<and> T = S \<and> A = B" | "x \<noteq> y \<and> T = S \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
       using trm_simp(4) `Fn x T A = Fn y S B` by metis
-    thus "\<exists>A'. (A \<rightarrow>\<beta> A') \<and> (Fn y S B' = Fn x T A')" proof(cases)
+    thus ?thesis proof(cases)
       case 1
         thus ?thesis using fn by auto
       next
@@ -1792,7 +1811,12 @@ proof -
       next
     qed
   next
-qed
+qed (
+  metis app_not_fn,
+  metis app_not_fn,
+  metis app_not_fn,
+  auto simp add: fn_not_pair fn_not_fst fn_not_snd
+)
 
 lemma beta_reduction_left_pairE:
   assumes "(Pair A B) \<rightarrow>\<beta> M'"
@@ -1809,35 +1833,44 @@ done
 lemma beta_reduction_left_fstE:
   assumes "(Fst P) \<rightarrow>\<beta> M'"
   shows "(\<exists>P'. (P \<rightarrow>\<beta> P') \<and> M' = (Fst P')) \<or> (\<exists>A B. P = (Pair A B) \<and> M' = A)"
-using assms
-  apply cases
-  apply (metis app_not_fst, metis app_not_fst, metis app_not_fst, metis fn_not_fst, metis pair_not_fst, metis pair_not_fst)
-  defer
-  defer
-  apply (metis fst_not_snd, metis fst_not_snd)
-proof -
+using assms proof(cases)
   case (fst1 P P')
     thus ?thesis using trm_simp(7) by blast
   next
   case (fst2 B)
     thus ?thesis using trm_simp(7) by blast
   next
-qed
+qed (
+  metis app_not_fst,
+  metis app_not_fst,
+  metis app_not_fst,
+  metis fn_not_fst,
+  metis pair_not_fst,
+  metis pair_not_fst,
+  metis fst_not_snd,
+  metis fst_not_snd
+)
 
 lemma beta_reduction_left_sndE:
   assumes "(Snd P) \<rightarrow>\<beta> M'"
   shows "(\<exists>P'. (P \<rightarrow>\<beta> P') \<and> M' = (Snd P')) \<or> (\<exists>A B. P = Pair A B \<and> M' = B)"
-using assms
-  apply cases
-  apply (metis app_not_snd, metis app_not_snd, metis app_not_snd, metis fn_not_snd, metis pair_not_snd, metis pair_not_snd, metis fst_not_snd, metis fst_not_snd)
-proof -
+using assms proof(cases)
   case (snd1 P P')
     thus ?thesis using trm_simp(8) by blast
   next
   case (snd2 A)
     thus ?thesis using trm_simp(8) by blast
   next
-qed
+qed (
+  metis app_not_snd,
+  metis app_not_snd,
+  metis app_not_snd,
+  metis fn_not_snd,
+  metis pair_not_snd,
+  metis pair_not_snd,
+  metis fst_not_snd,
+  metis fst_not_snd
+)
   
 lemma preservation':
   assumes "\<Gamma> \<turnstile> M : \<tau>" and "M \<rightarrow>\<beta> M'"
@@ -2279,14 +2312,7 @@ inductive_cases parallel_reduction_fnE': "(Fn x T A) >> X"
 lemma parallel_reduction_fnE:
   assumes "(Fn x T A) >> X"
   shows "X = Fn x T A \<or> (\<exists>A'. (A >> A') \<and> X = Fn x T A')"
-using assms
-  apply (induction rule: parallel_reduction_fnE'[where x=x and T=T and A=A and X=X])
-  apply (metis assms)
-  apply (blast)
-  apply (metis app_not_fn)
-  defer
-  apply (metis app_not_fn, metis fn_not_pair, metis fn_not_fst, metis fn_not_fst, metis fn_not_snd, metis fn_not_snd)
-proof -
+using assms proof(induction rule: parallel_reduction_fnE'[where x=x and T=T and A=A and X=X])
   case (4 B B' y S)
     from this consider "x = y \<and> T = S \<and> A = B" | "x \<noteq> y \<and> T = S \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
       using trm_simp(4) by metis
@@ -2303,7 +2329,17 @@ proof -
       next
     qed
   next
-qed
+qed (
+  metis assms,
+  blast,
+  metis app_not_fn,
+  metis app_not_fn,
+  metis fn_not_pair,
+  metis fn_not_fst,
+  metis fn_not_fst,
+  metis fn_not_snd,
+  metis fn_not_snd
+)
 
 inductive_cases parallel_reduction_redexE': "(App (Fn x T A) B) >> X"
 lemma parallel_reduction_redexE:
@@ -2313,15 +2349,7 @@ lemma parallel_reduction_redexE:
     (\<exists>A' B'. (A >> A') \<and> (B >> B') \<and> X = (A'[x ::= B'])) \<or>
     (\<exists>A' B'. ((Fn x T A) >> (Fn x T A')) \<and> (B >> B') \<and> X = (App (Fn x T A') B'))
   "
-using assms
-  apply (induction rule: parallel_reduction_redexE'[where x=x and T=T and A=A and B=B and X=X])
-  apply (metis assms)
-  apply (blast)
-  defer
-  apply (metis app_not_fn)
-  defer
-  apply (metis app_not_pair, metis app_not_fst, metis app_not_fst, metis app_not_snd, metis app_not_snd)
-proof -
+using assms proof(induction rule: parallel_reduction_redexE'[where x=x and T=T and A=A and B=B and X=X])
   case (5 C C' D D')
     from `App (Fn x T A) B = App C D` have C: "C = Fn x T A" and D: "D = B"
       by (metis trm_simp(2), metis trm_simp(3))
@@ -2352,85 +2380,103 @@ proof -
       next
     qed
   next
-qed
+qed (
+  metis assms,
+  blast,
+  metis app_not_fn,
+  metis app_not_pair,
+  metis app_not_fst,
+  metis app_not_fst,
+  metis app_not_snd,
+  metis app_not_snd
+)
 
 inductive_cases parallel_reduction_nonredexE': "(App A B) >> X"
 lemma parallel_reduction_nonredexE:
   assumes "(App A B) >> X" and "\<And>x T A'. A \<noteq> Fn x T A'"
   shows "\<exists>A' B'. (A >> A') \<and> (B >> B') \<and> X = (App A' B')"
-using assms
-  apply (induction rule: parallel_reduction_nonredexE'[where A=A and B=B and X=X])
-  apply (metis assms(1))
-  apply (metis parallel_reduction.refl)
-  apply (metis trm_simp(2, 3) assms(2))
-  apply (metis app_not_fn)
-  defer
-  apply (metis app_not_pair, metis app_not_fst, metis app_not_fst, metis app_not_snd, metis app_not_snd)
-proof -
+using assms proof(induction rule: parallel_reduction_nonredexE'[where A=A and B=B and X=X])
   case (5 C C' D D')
     hence "A = C" "B = D" using trm_simp(2, 3) by auto
     thus ?case using `C >> C'` `D >> D'` `X = App C' D'` by metis
   next
-qed
+qed (
+  metis assms(1),
+  metis parallel_reduction.refl,
+  metis trm_simp(2, 3) assms(2),
+  metis app_not_fn,
+  metis app_not_pair,
+  metis app_not_fst,
+  metis app_not_fst,
+  metis app_not_snd,
+  metis app_not_snd
+)
 
 inductive_cases parallel_reduction_pairE': "(Pair A B) >> X"
 lemma parallel_reduction_pairE:
   assumes "(Pair A B) >> X"
   shows "\<exists>A' B'. (A >> A') \<and> (B >> B') \<and> (X = Pair A' B')"
-using assms
-  apply (induction rule: parallel_reduction_pairE'[where A=A and B=B and X=X])
-  apply (metis assms)
-  defer
-  apply (metis app_not_pair, metis fn_not_pair, metis app_not_pair)
-  defer
-  apply (metis pair_not_fst, metis pair_not_fst, metis pair_not_snd, metis pair_not_snd)
-proof -
+using assms proof(induction rule: parallel_reduction_pairE'[where A=A and B=B and X=X])
   case 2
     thus ?case using parallel_reduction.refl by blast
   next
   case (6 A A' B B')
     thus ?case using parallel_reduction.pair trm_simp(5, 6) by fastforce
   next
-qed
+qed (
+  metis assms,
+  metis app_not_pair,
+  metis fn_not_pair,
+  metis app_not_pair,
+  metis pair_not_fst,
+  metis pair_not_fst,
+  metis pair_not_snd,
+  metis pair_not_snd
+)
 
 inductive_cases parallel_reduction_fstE': "(Fst P) >> X"
 lemma parallel_reduction_fstE:
   assumes "(Fst P) >> X"
   shows "(\<exists>P'. (P >> P') \<and> X = (Fst P')) \<or> (\<exists>A A' B. (P = Pair A B) \<and> (A >> A') \<and> X = A')"
-using assms
-  apply (induction rule: parallel_reduction_fstE'[where P=P and X=X])
-  apply (metis assms)
-  apply (insert parallel_reduction.refl, metis)[]
-  apply (metis app_not_fst, metis fn_not_fst, metis app_not_fst, metis pair_not_fst)
-  defer
-  defer
-  apply (metis fst_not_snd, metis fst_not_snd)
-proof -
+using assms proof(induction rule: parallel_reduction_fstE'[where P=P and X=X])
   case (7 P P')
     thus ?case using parallel_reduction.fst1 trm_simp(7) by metis
   next
   case (8 A B)
     thus ?case using parallel_reduction.fst2 trm_simp(7) by metis
   next
-qed
+qed (
+  metis assms,
+  insert parallel_reduction.refl, metis,
+  metis app_not_fst,
+  metis fn_not_fst,
+  metis app_not_fst,
+  metis pair_not_fst,
+  metis fst_not_snd,
+  metis fst_not_snd
+)
 
 inductive_cases parallel_reduction_sndE': "(Snd P) >> X"
 lemma parallel_reduction_sndE:
   assumes "(Snd P) >> X"
   shows "(\<exists>P'. (P >> P') \<and> X = (Snd P')) \<or> (\<exists>A B B'. (P = Pair A B) \<and> (B >> B') \<and> X = B')"
-using assms
-  apply (induction rule: parallel_reduction_sndE'[where P=P and X=X])
-  apply (metis assms)
-  apply (insert parallel_reduction.refl, metis)[]
-  apply (metis app_not_snd, metis fn_not_snd, metis app_not_snd, metis pair_not_snd, metis fst_not_snd, metis fst_not_snd)
-proof -
+using assms proof(induction rule: parallel_reduction_sndE'[where P=P and X=X])
   case (9 P P')
     thus ?case using parallel_reduction.snd1 trm_simp(8) by metis
   next
   case (10 A B)
     thus ?case using parallel_reduction.snd2 trm_simp(8) by metis
   next
-qed
+qed (
+  metis assms,
+  insert parallel_reduction.refl, metis,
+  metis app_not_snd,
+  metis fn_not_snd,
+  metis app_not_snd,
+  metis pair_not_snd,
+  metis fst_not_snd,
+  metis fst_not_snd
+)
 
 lemma parallel_reduction_subst_inner:
   assumes "M >> M'"
@@ -2834,12 +2880,7 @@ qed
 lemma complete_development_fnE:
   assumes "(Fn x T A) >>> X"
   shows "\<exists>A'. (A >>> A') \<and> X = Fn x T A'"
-using assms
-  apply cases
-  apply (metis unit_not_fn, metis var_not_fn, metis app_not_fn)
-  defer
-  apply (metis app_not_fn, metis fn_not_pair, metis fn_not_fst, metis fn_not_fst, metis fn_not_snd, metis fn_not_snd)
-proof -
+using assms proof(cases)
   case (eta B B' y S)
     hence "T = S" using trm_simp(4) by metis
     from eta consider "x = y \<and> A = B" | "x \<noteq> y \<and> x \<notin> fvs B \<and> A = [x \<leftrightarrow> y] \<cdot> B"
@@ -2862,7 +2903,17 @@ proof -
       next
     qed
   next
-qed
+qed (
+  metis unit_not_fn,
+  metis var_not_fn,
+  metis app_not_fn,
+  metis app_not_fn,
+  metis fn_not_pair,
+  metis fn_not_fst,
+  metis fn_not_fst,
+  metis fn_not_snd,
+  metis fn_not_snd
+)
 
 lemma complete_development_pairE:
   assumes "(Pair A B) >>> X"

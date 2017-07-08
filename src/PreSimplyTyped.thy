@@ -70,17 +70,12 @@ by(induction X, auto)
 lemma ptrm_size_alpha_equiv:
   assumes "X \<approx> Y"
   shows "size X = size Y"
-using assms
-  apply (induction rule: ptrm_alpha_equiv.induct)
-  apply (simp, simp, simp, simp)
-  defer
-  apply (simp, simp, simp)
-proof -
+using assms proof(induction rule: ptrm_alpha_equiv.induct)
   case (fn2 a b A B T)
     hence "size A = size B" using ptrm_size_prm by metis
     thus ?case by auto
   next
-qed
+qed auto
 
 lemma ptrm_fvs_finite:
   shows "finite (ptrm_fvs X)"
@@ -132,11 +127,7 @@ qed
 lemma ptrm_alpha_equiv_fvs:
   assumes "X \<approx> Y"
   shows "ptrm_fvs X = ptrm_fvs Y"
-using assms 
-  apply (induction rule: ptrm_alpha_equiv.induct, simp, simp, simp, simp)
-  defer
-  apply (simp, simp, simp)
-proof -
+using assms proof(induction rule: ptrm_alpha_equiv.induct)
   case (fn2 a b A B T)
     have "ptrm_fvs (PFn a T A) = ptrm_fvs A - {a}" by simp
     moreover have "... = ptrm_fvs ([a \<leftrightarrow> b] \<bullet> B) - {a}" using fn2.IH by metis
@@ -165,7 +156,7 @@ proof -
     moreover have "... = ptrm_fvs (PFn b T B)" by simp
     ultimately show ?case by metis
   next
-qed
+qed auto
 
 lemma ptrm_alpha_equiv_prm:
   assumes "X \<approx> Y"
@@ -768,16 +759,12 @@ qed
 lemma ptrm_infer_type_alpha_equiv:
   assumes "X \<approx> Y"
   shows "ptrm_infer_type \<Gamma> X = ptrm_infer_type \<Gamma> Y"
-using assms
-  apply (induction arbitrary: \<Gamma>, simp, simp, simp, simp)
-  defer
-  apply (simp, simp, simp)
-proof -
+using assms proof(induction arbitrary: \<Gamma>)
   case (fn2 a b A B T \<Gamma>)
     hence "ptrm_infer_type (\<Gamma>(a \<mapsto> T)) A = ptrm_infer_type (\<Gamma>(b \<mapsto> T)) B"
       using ptrm_infer_type_swp prm_unit_commutes by metis
     thus ?case by simp
   next
-qed
+qed auto
 
 end
